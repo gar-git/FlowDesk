@@ -40,7 +40,7 @@ router.post('/signup', async (req, res) => {
             .where(eq(users.id, result[0].insertId))
             .limit(1);
 
-        res.status(201).send({ statusCode: 201, data: newUser[0] });
+        res.status(201).send({ statusCode: 201, message: "User created successfully.", data: newUser[0] });
     } catch (err) {
         console.error('Signup error:', err.message);
         res.status(500).send({ statusCode: 500, message: err.message });
@@ -74,6 +74,7 @@ router.post('/login', async (req, res) => {
             statusCode: 200,
             data: {
                 token,
+                message: "Login successfully.",
                 user: { id: user.id, name: user.name, email: user.email, roleId: user.roleId },
             },
         });
@@ -102,7 +103,7 @@ router.get('/profile', checkToken, async (req, res) => {
 
         if (!result.length) return res.status(404).send({ statusCode: 404, message: 'User not found' });
 
-        res.status(200).send({ statusCode: 200, data: result[0] });
+        res.status(200).send({ statusCode: 200, message: "Profile retrieved successfully.", data: result[0] });
     } catch (err) {
         console.error('Profile error:', err.message);
         res.status(500).send({ statusCode: 500, message: err.message });
@@ -127,7 +128,7 @@ router.get('/team', checkToken, async (req, res) => {
                 .from(users)
                 .where(eq(users.managerId, id));
 
-            return res.status(200).send({ statusCode: 200, data: devs });
+            return res.status(200).send({ statusCode: 200, message: "Team members retrieved successfully.", data: devs });
         }
 
         // roleId 2 = Team Lead
@@ -143,7 +144,7 @@ router.get('/team', checkToken, async (req, res) => {
                 .from(users)
                 .where(eq(users.tlId, id));
 
-            return res.status(200).send({ statusCode: 200, data: members });
+            return res.status(200).send({ statusCode: 200, message: "Team members retrieved successfully.", data: members });
         }
 
         return res.status(403).send({ statusCode: 403, message: 'Access denied' });
