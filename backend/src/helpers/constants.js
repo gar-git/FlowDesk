@@ -1,11 +1,11 @@
-exports.taskStatus = {
+export const TASK_STATUS = {
     TODO: 1,
     ONGOING: 2,
     COMPLETED: 3
 };
 
-exports.priority = {
+export const PRIORITY = {
     LOW: 1,
     MEDIUM: 2,
     HIGH: 3
-}
+};
