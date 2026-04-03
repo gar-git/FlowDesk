@@ -9,7 +9,8 @@ export const roleMaster = mysqlTable('role_master', {
 // Users
 export const users = mysqlTable('users', {
     id: int('id').autoincrement().primaryKey(),
-    name: varchar('name', { length: 255 }).notNull(),
+    firstName: varchar('first_name', { length: 255 }).notNull(),
+    lastName: varchar('last_name', { length: 255 }).notNull(),
     email: varchar('email', { length: 255 }).notNull().unique(),
     password: text('password').notNull(),
     roleId: int('role_id').notNull().references(() => roleMaster.id),

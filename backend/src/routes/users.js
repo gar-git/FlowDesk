@@ -1,9 +1,9 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { eq } from 'drizzle-orm';
+import { eq, asc } from 'drizzle-orm';
 import { db } from '../db.js';
-import { users } from '../db/schema.js';
+import { users, roleMaster } from '../db/schema.js';
 import dotenv from 'dotenv';
 import { checkToken } from '../middlewares/checkToken.js';
 
@@ -13,13 +13,14 @@ const router = express.Router();
 
 router.post('/signup', async (req, res) => {
     try {
-        const { name, email, password, roleId, employeeCode, managerId, tlId } = req.body;
+        const { firstName, lastName, email, password, roleId, employeeCode, managerId, tlId } = req.body;
         const encrypted = await bcrypt.hash(password, 10);
 
         const result = await db
             .insert(users)
             .values({
-                name,
+                firstName,
+                lastName,
                 email,
                 password: encrypted,
                 roleId,
@@ -31,7 +32,8 @@ router.post('/signup', async (req, res) => {
         const newUser = await db
             .select({
                 id: users.id,
-                name: users.name,
+                firstName: users.firstName,
+                lastName: users.lastName,
                 email: users.email,
                 roleId: users.roleId,
                 employeeCode: users.employeeCode,
@@ -43,7 +45,7 @@ router.post('/signup', async (req, res) => {
         res.status(201).send({ statusCode: 201, message: "User created successfully.", data: newUser[0] });
     } catch (err) {
         console.error('Signup error:', err.message);
-        res.status(500).send({ statusCode: 500, message: err.message });
+        res.status(500).send({ statusCode: 500, message: "Error occurred" });
     }
 });
 
@@ -80,7 +82,7 @@ router.post('/login', async (req, res) => {
         });
     } catch (err) {
         console.error('Login error:', err.message);
-        res.status(500).send({ statusCode: 500, message: err.message });
+        res.status(500).send({ statusCode: 500, message: "Error occurred" });
     }
 });
 
@@ -106,7 +108,7 @@ router.get('/profile', checkToken, async (req, res) => {
         res.status(200).send({ statusCode: 200, message: "Profile retrieved successfully.", data: result[0] });
     } catch (err) {
         console.error('Profile error:', err.message);
-        res.status(500).send({ statusCode: 500, message: err.message });
+        res.status(500).send({ statusCode: 500, message: "Error occurred" });
     }
 });
 
@@ -150,9 +152,30 @@ router.get('/team', checkToken, async (req, res) => {
         return res.status(403).send({ statusCode: 403, message: 'Access denied' });
     } catch (err) {
         console.error('Team error:', err.message);
-        res.status(500).send({ statusCode: 500, message: err.message });
+        res.status(500).send({ statusCode: 500, message: "Error occurred" });
     }
 });
 
+
+router.get('/roleDropdown', async (req, res) => {
+    try {
+        const result = await db
+            .select({
+                id: roleMaster.id,
+                text: roleMaster.roleName,
+            })
+            .from(roleMaster)
+            .orderBy(asc(roleMaster.id));
+
+        console.log(result)
+
+        if (!result.length) return res.status(404).send({ statusCode: 404, message: 'User not found' });
+
+        res.status(200).send({ statusCode: 200, message: "Profile retrieved successfully.", data: result });
+    } catch (err) {
+        console.error('Profile error:', err.message);
+        res.status(500).send({ statusCode: 500, message: err.message });
+    }
+});
 
 export default router;
