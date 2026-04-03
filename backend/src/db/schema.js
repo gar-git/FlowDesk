@@ -1,35 +1,38 @@
-import { pgTable, serial, text, integer, smallint, date, timestamp } from 'drizzle-orm/pg-core';
+import { mysqlTable, int, varchar, text, smallint, date, timestamp } from 'drizzle-orm/mysql-core';
 
-export const roleMaster = pgTable('role_master', {
-    id: serial('id').primaryKey(),
-    roleName: text('role_name').notNull().unique(),
+// Role Master
+export const roleMaster = mysqlTable('role_master', {
+    id: int('id').autoincrement().primaryKey(), // ✅ serial → int + autoincrement
+    roleName: varchar('role_name', { length: 255 }).notNull().unique(), // ✅ text → varchar (better for indexing)
 });
 
-export const users = pgTable('users', {
-    id: serial('id').primaryKey(),
-    name: text('name').notNull(),
-    email: text('email').notNull().unique(),
+// Users
+export const users = mysqlTable('users', {
+    id: int('id').autoincrement().primaryKey(),
+    name: varchar('name', { length: 255 }).notNull(),
+    email: varchar('email', { length: 255 }).notNull().unique(),
     password: text('password').notNull(),
-    roleId: integer('role_id').notNull().references(() => roleMaster.id),
-    employeeCode: text('employee_code').notNull().unique(),
-    managerId: integer('manager_id').references(() => users.id),
-    tlId: integer('tl_id').references(() => users.id),
+    roleId: int('role_id').notNull().references(() => roleMaster.id),
+    employeeCode: varchar('employee_code', { length: 100 }).notNull().unique(),
+    managerId: int('manager_id').references(() => users.id),
+    tlId: int('tl_id').references(() => users.id),
     createdAt: timestamp('created_at').defaultNow(),
 });
 
-export const tasks = pgTable('tasks', {
-    id: serial('id').primaryKey(),
-    title: text('title').notNull(),
+// Tasks
+export const tasks = mysqlTable('tasks', {
+    id: int('id').autoincrement().primaryKey(),
+    title: varchar('title', { length: 255 }).notNull(),
     description: text('description'),
     // 1=todo, 2=ongoing, 3=completed
     status: smallint('status').notNull().default(1),
-    creatorId: integer('creator_id').references(() => users.id),
-    assigneeId: integer('assignee_id').references(() => users.id),
+    creatorId: int('creator_id').references(() => users.id),
+    assigneeId: int('assignee_id').references(() => users.id),
     // 1=low, 2=medium, 3=high
     priority: smallint('priority').notNull().default(2),
     dueDate: date('due_date'),
-    forwardFrom: integer('forward_from').references(() => users.id),
-    pendingForwardTo: integer('pending_forward_to').references(() => users.id),
+    forwardFrom: int('forward_from').references(() => users.id),
+    pendingForwardTo: int('pending_forward_to').references(() => users.id),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at').defaultNow(),
 });
