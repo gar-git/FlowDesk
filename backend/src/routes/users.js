@@ -23,7 +23,7 @@ const checkToken = async (req, res, next) => {
 };
 
 router.post('/signup', async (req, res) => {
-  const { name, email, password, role_id, manager_id, tl_id } = req.body;
+  const { name, email, password, roleId, managerId, tlId } = req.body;
   const encrypted = await bcrypt.hash(password, 10);
 
   const result = await db
@@ -32,9 +32,9 @@ router.post('/signup', async (req, res) => {
       name,
       email,
       password: encrypted,
-      roleId: role_id,
-      managerId: manager_id || null,
-      tlId: tl_id || null,
+      roleId: roleId,
+      managerId: managerId || null,
+      tlId: tlId || null,
     })
     .returning({
       id: users.id,
@@ -54,6 +54,7 @@ router.post('/login', async (req, res) => {
     .from(users)
     .where(eq(users.email, email))
     .limit(1);
+
 
   if (!result.length) return res.status(400).send({ message: 'Invalid credentials' });
 
