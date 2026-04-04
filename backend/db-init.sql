@@ -13,17 +13,21 @@ INSERT IGNORE INTO role_master (id, role_name) VALUES
 -- users table
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
+  first_name VARCHAR(255) NOT NULL,
+  last_name VARCHAR(255) NOT NULL,
+
   email VARCHAR(255) NOT NULL UNIQUE,
   password TEXT NOT NULL,
 
   role_id INT NOT NULL,
+  is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 
   employee_code VARCHAR(100),
   manager_id INT,
   tl_id INT,
 
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL DEFAULT NULL,
 
   FOREIGN KEY (role_id) REFERENCES role_master(id),
   FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE SET NULL,
