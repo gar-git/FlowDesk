@@ -20,12 +20,14 @@ CREATE TABLE IF NOT EXISTS users (
   password TEXT NOT NULL,
 
   role_id INT NOT NULL,
+  is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 
   employee_code VARCHAR(100),
   manager_id INT,
   tl_id INT,
 
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL DEFAULT NULL,
 
   FOREIGN KEY (role_id) REFERENCES role_master(id),
   FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE SET NULL,

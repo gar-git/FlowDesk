@@ -1,4 +1,4 @@
-import { mysqlTable, int, varchar, text, smallint, date, timestamp } from 'drizzle-orm/mysql-core';
+import { mysqlTable, int, varchar, text, smallint, date, timestamp, tinyint } from 'drizzle-orm/mysql-core';
 
 // Role Master
 export const roleMaster = mysqlTable('role_master', {
@@ -14,10 +14,12 @@ export const users = mysqlTable('users', {
     email: varchar('email', { length: 255 }).notNull().unique(),
     password: text('password').notNull(),
     roleId: int('role_id').notNull().references(() => roleMaster.id),
+    isDeleted: tinyint('is_deleted').notNull().default(0), // 0 = active, 1 = deleted
     employeeCode: varchar('employee_code', { length: 100 }).notNull().unique(),
     managerId: int('manager_id').references(() => users.id),
     tlId: int('tl_id').references(() => users.id),
     createdAt: timestamp('created_at').defaultNow(),
+    deletedAt: timestamp('deleted_at')
 });
 
 // Tasks

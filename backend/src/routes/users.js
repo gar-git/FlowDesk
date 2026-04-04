@@ -57,7 +57,8 @@ router.post('/login', async (req, res) => {
         const result = await db
             .select()
             .from(users)
-            .where(eq(users.email, email))
+            .where(eq(users.email, email),
+                    eq(users.isDeleted, 0))
             .limit(1);
 
         if (!result.length) return res.status(400).send({ statusCode: 400, message: 'Invalid credentials' });
@@ -107,7 +108,7 @@ router.get('/profile', checkToken, async (req, res) => {
 
         res.status(200).send({ statusCode: 200, message: "Profile retrieved successfully.", data: result[0] });
     } catch (err) {
-        console.error('Profile error:', err.message);
+        console.error('Profile error:', err);
         res.status(500).send({ statusCode: 500, message: "Error occurred" });
     }
 });
