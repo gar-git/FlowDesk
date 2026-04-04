@@ -118,7 +118,13 @@ export const JWTProvider = ({ children }) => {
     };
 
     // Logout — clear token and reset state
-    const logout = () => {
+    const logout = async () => {
+        try {
+            await logoutApi();
+        } catch (error) {
+            // Continue with logout even if API call fails
+            console.warn('API logout failed:', error);
+        }
         setSession(null);
         dispatch({ type: LOGOUT });
         showSnackbar('Logged out successfully', 'success');
