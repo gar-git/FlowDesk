@@ -1,18 +1,26 @@
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import { isTokenBlocked } from '../helpers/tokenBlocklist.js';
+
 dotenv.config();
 
-const checkToken = async (req, res, next) => {
-    const auth = req.headers.authorization;
-    if (!auth || !auth.startsWith('Bearer ')) return res.status(401).send({ message: 'Unauthorized' });
+export const checkToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader?.split(' ')[1]; // Bearer <token>
+
+    if (!token) return res.status(401).send({ statusCode: 401, message: 'No token provided' });
+
+    // ✅ Add this check
+    if (isTokenBlocked(token)) {
+        return res.status(401).send({ statusCode: 401, message: 'Token has been revoked' });
+    }
+
     try {
-        const token = auth.split(' ')[1];
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         req.user = decoded;
+        req.token = token; // ✅ Attach raw token so logout can read it
         next();
     } catch (err) {
-        return res.status(401).send({ statusCode: 401, message: 'Invalid token' });
+        return res.status(401).send({ statusCode: 401, message: 'Invalid or expired token' });
     }
 };
-
-export { checkToken };

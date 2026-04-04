@@ -6,6 +6,7 @@ import { db } from '../db.js';
 import { users, roleMaster } from '../db/schema.js';
 import dotenv from 'dotenv';
 import { checkToken } from '../middlewares/checkToken.js';
+import { blockToken  } from '../helpers/tokenBlocklist.js';
 
 dotenv.config();
 const router = express.Router();
@@ -168,14 +169,24 @@ router.get('/roleDropdown', async (req, res) => {
             .from(roleMaster)
             .orderBy(asc(roleMaster.id));
 
-        console.log(result)
 
         if (!result.length) return res.status(404).send({ statusCode: 404, message: 'User not found' });
 
         res.status(200).send({ statusCode: 200, message: "Profile retrieved successfully.", data: result });
     } catch (err) {
         console.error('Profile error:', err.message);
-        res.status(500).send({ statusCode: 500, message: err.message });
+        res.status(500).send({ statusCode: 500, message: "Error occurred" });
+    }
+});
+
+router.post('/logout', checkToken, (req, res) => {
+    try {
+        const token = req.token; // set by checkToken middleware
+        blockToken(token);
+        res.status(200).send({ statusCode: 200, message: 'Logged out successfully' });
+    } catch (err) {
+        console.error('Logout error:', err.message);
+        res.status(500).send({ statusCode: 500, message: "Error occurred" });
     }
 });
 
