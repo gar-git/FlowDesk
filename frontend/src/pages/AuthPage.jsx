@@ -1,6 +1,10 @@
 import { useState } from 'react';
+import useAuth from '../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 export default function AuthPage({ initialTab = 'login', onBack }) {
+  const { login, signup } = useAuth();
+  const navigate = useNavigate();
   const [tab, setTab] = useState(initialTab); // 'login' | 'signup'
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -18,7 +22,7 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
     lastName: '',
     email: '',
     employeeCode: '',
-    role: 'developer',
+    role: 3,
     password: '',
     confirmPassword: '',
   });
@@ -26,18 +30,22 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
   const handleSignupChange = (field) => (e) =>
     setSignupData(prev => ({ ...prev, [field]: e.target.value }));
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     if (!loginEmail || !loginPassword) {
       setError('Please fill in all fields.');
       return;
     }
-    // TODO: connect to API
-    setSuccess('Login successful! (API not connected yet)');
+    const res = await login(loginEmail, loginPassword);
+    if (res.success) {
+      navigate('/dashboard', { replace: true });
+    } else {
+      setError(res.message || 'Login failed.');
+    }
   };
 
-  const handleSignup = (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
     setError('');
     const { firstName, lastName, email, employeeCode, role, password, confirmPassword } = signupData;
@@ -53,8 +61,13 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
       setError('Password must be at least 8 characters.');
       return;
     }
-    // TODO: connect to API
-    setSuccess('Account created! (API not connected yet)');
+    const res = await signup({ firstName, lastName, email, employeeCode, roleId: Number(role), password });
+    if (res.success) {
+      setSuccess('Account created! Redirecting to login…');
+      switchTab('login');
+    } else {
+      setError(res.message || 'Signup failed.');
+    }
   };
 
   const switchTab = (newTab) => {
@@ -287,9 +300,9 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                       value={signupData.role}
                       onChange={handleSignupChange('role')}
                     >
-                      <option value="developer">Developer (SDE)</option>
-                      <option value="tl">Tech Lead</option>
-                      <option value="manager">Manager</option>
+                      <option value={3}>Developer (SDE)</option>
+                      <option value={2}>Tech Lead</option>
+                      <option value={1}>Manager</option>
                     </select>
                   </div>
                 </div>
