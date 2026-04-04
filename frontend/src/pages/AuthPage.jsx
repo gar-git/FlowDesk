@@ -1,27 +1,40 @@
-import { useState } from 'react';
-import { useFormik } from 'formik';
-import * as Yup from 'yup';
-import useAuth from '../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { useState } from "react";
+import { useFormik } from "formik";
+import * as Yup from "yup";
+import useAuth from "../hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 const loginValidationSchema = Yup.object({
-  email: Yup.string().email('Invalid email address').required('Email is required'),
-  password: Yup.string().required('Password is required'),
+  email: Yup.string()
+    .email("Invalid email address")
+    .required("Email is required"),
+  password: Yup.string().required("Password is required"),
 });
 
 const signupValidationSchema = Yup.object({
-  firstName: Yup.string().required('First Name is required'),
-  lastName: Yup.string().required('Last Name is required'),
-  email: Yup.string().email('Invalid email address').required('Email is required'),
-  employeeCode: Yup.string().required('Employee Code is required'),
-  role: Yup.number().required('Role is required'),
-  password: Yup.string().min(8, 'Password must be at least 8 characters').required('Password is required'),
+  firstName: Yup.string().required("First Name is required"),
+  lastName: Yup.string().required("Last Name is required"),
+  email: Yup.string()
+    .email("Invalid email address")
+    .required("Email is required"),
+  employeeCode: Yup.string().required("Employee Code is required"),
+  role: Yup.number().required("Role is required"),
+  password: Yup.string()
+    .min(8, "Password must be at least 8 characters")
+    .required("Password is required"),
   confirmPassword: Yup.string()
-    .oneOf([Yup.ref('password')], 'Passwords do not match')
-    .required('Please confirm your password'),
+    .oneOf([Yup.ref("password")], "Passwords do not match")
+    .required("Please confirm your password"),
 });
 
-function FloatingInput({ formik, label, name, type = 'text', autoComplete, ...rest }) {
+function FloatingInput({
+  formik,
+  label,
+  name,
+  type = "text",
+  autoComplete,
+  ...rest
+}) {
   return (
     <div className="form-group">
       <div className="floating-field">
@@ -45,53 +58,53 @@ function FloatingInput({ formik, label, name, type = 'text', autoComplete, ...re
   );
 }
 
-export default function AuthPage({ initialTab = 'login', onBack }) {
+export default function AuthPage({ initialTab = "login", onBack }) {
   const { userLogin, userSignup } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState(initialTab);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
 
   const switchTab = (newTab) => {
     setTab(newTab);
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
   };
 
   const loginFormik = useFormik({
     initialValues: {
-      email: '',
-      password: '',
+      email: "",
+      password: "",
     },
     validationSchema: loginValidationSchema,
     onSubmit: async (values) => {
       // debugger
-      setError('');
+      setError("");
       const res = await userLogin(values.email, values.password);
       if (res.success) {
-        navigate('/dashboard', { replace: true });
+        navigate("/dashboard", { replace: true });
       } else {
-        setError(res.message || 'Login failed.');
+        setError(res.message || "Login failed.");
       }
     },
   });
 
   const signupFormik = useFormik({
     initialValues: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      employeeCode: '',
+      firstName: "",
+      lastName: "",
+      email: "",
+      employeeCode: "",
       role: 3,
-      password: '',
-      confirmPassword: '',
+      password: "",
+      confirmPassword: "",
     },
     validationSchema: signupValidationSchema,
     onSubmit: async (values) => {
-      setError('');
+      setError("");
       const res = await userSignup({
         firstName: values.firstName,
         lastName: values.lastName,
@@ -101,10 +114,10 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
         password: values.password,
       });
       if (res.success) {
-        setSuccess('Account created! Redirecting to login…');
-        switchTab('login');
+        setSuccess("Account created! Redirecting to login…");
+        switchTab("login");
       } else {
-        setError(res.message || 'Signup failed.');
+        setError(res.message || "Signup failed.");
       }
     },
   });
@@ -112,17 +125,17 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
   const testimonials = {
     login: {
       text: '"FlowDesk changed how we run sprints. The hierarchy-aware views mean I never have to chase updates anymore."',
-      name: 'Priya Sharma',
-      role: 'Engineering Manager, Razorpay',
-      color: '#6c63ff',
-      initial: 'P',
+      name: "Priya Sharma",
+      role: "Engineering Manager, Razorpay",
+      color: "#6c63ff",
+      initial: "P",
     },
     signup: {
       text: '"The task forwarding feature alone saved us hours of meetings. My team loves the clean interface."',
-      name: 'Rahul Mehta',
-      role: 'Tech Lead, Zepto',
-      color: '#00d4ff',
-      initial: 'R',
+      name: "Rahul Mehta",
+      role: "Tech Lead, Zepto",
+      color: "#00d4ff",
+      initial: "R",
     },
   };
 
@@ -138,19 +151,25 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
         </div>
         <div className="auth-left-content">
           <div className="auth-left-logo" onClick={onBack}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div className="logo-icon">F</div>
-              <span className="logo-text">Flow<span>Desk</span></span>
+              <span className="logo-text">
+                Flow<span>Desk</span>
+              </span>
             </div>
           </div>
 
           <h2 className="auth-left-tagline">
-            Manage tasks<br />the way your <span className="gradient-text">team actually works</span>
+            Manage tasks
+            <br />
+            the way your{" "}
+            <span className="gradient-text">team actually works</span>
           </h2>
 
           <p className="auth-left-desc">
-            The only task tracker built around your org hierarchy. Assign, track, and
-            delegate — with real-time notifications and full visibility at every level.
+            The only task tracker built around your org hierarchy. Assign,
+            track, and delegate — with real-time notifications and full
+            visibility at every level.
           </p>
 
           <div className="auth-testimonial">
@@ -175,13 +194,24 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
           <button
             onClick={onBack}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--text-muted)', fontSize: 13, marginBottom: 32,
-              transition: 'var(--transition)', fontFamily: 'inherit',
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--text-muted)",
+              fontSize: 13,
+              marginBottom: 32,
+              transition: "var(--transition)",
+              fontFamily: "inherit",
             }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-secondary)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.color = "var(--text-secondary)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.color = "var(--text-muted)")
+            }
           >
             ← Back to home
           </button>
@@ -189,14 +219,14 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
           {/* Tabs */}
           <div className="auth-tabs">
             <button
-              className={`auth-tab${tab === 'login' ? ' active' : ''}`}
-              onClick={() => switchTab('login')}
+              className={`auth-tab${tab === "login" ? " active" : ""}`}
+              onClick={() => switchTab("login")}
             >
               Log In
             </button>
             <button
-              className={`auth-tab${tab === 'signup' ? ' active' : ''}`}
-              onClick={() => switchTab('signup')}
+              className={`auth-tab${tab === "signup" ? " active" : ""}`}
+              onClick={() => switchTab("signup")}
             >
               Sign Up
             </button>
@@ -207,10 +237,12 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
           {success && <div className="success-msg">✓ {success}</div>}
 
           {/* ===== LOGIN FORM ===== */}
-          {tab === 'login' && (
+          {tab === "login" && (
             <>
               <h2 className="auth-form-title">Welcome back</h2>
-              <p className="auth-form-subtitle">Log in to your FlowDesk workspace</p>
+              <p className="auth-form-subtitle">
+                Log in to your FlowDesk workspace
+              </p>
 
               <form onSubmit={loginFormik.handleSubmit}>
                 <FloatingInput
@@ -225,7 +257,7 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                   <div className="floating-field">
                     <input
                       className="form-input"
-                      type={showPassword ? 'text' : 'password'}
+                      type={showPassword ? "text" : "password"}
                       name="password"
                       value={loginFormik.values.password}
                       onChange={loginFormik.handleChange}
@@ -238,14 +270,17 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                   <button
                     type="button"
                     className="password-toggle"
-                    onClick={() => setShowPassword(p => !p)}
+                    onClick={() => setShowPassword((p) => !p)}
                     tabIndex={-1}
                   >
-                    {showPassword ? '🙈' : '👁️'}
+                    {showPassword ? "🙈" : "👁️"}
                   </button>
-                  {loginFormik.touched.password && loginFormik.errors.password && (
-                    <span className="field-error">{loginFormik.errors.password}</span>
-                  )}
+                  {loginFormik.touched.password &&
+                    loginFormik.errors.password && (
+                      <span className="field-error">
+                        {loginFormik.errors.password}
+                      </span>
+                    )}
                 </div>
 
                 <div className="form-footer">
@@ -253,11 +288,13 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                     <input
                       type="checkbox"
                       checked={rememberMe}
-                      onChange={e => setRememberMe(e.target.checked)}
+                      onChange={(e) => setRememberMe(e.target.checked)}
                     />
                     <span>Remember me</span>
                   </label>
-                  <button type="button" className="forgot-link">Forgot password?</button>
+                  <button type="button" className="forgot-link">
+                    Forgot password?
+                  </button>
                 </div>
 
                 <button type="submit" className="btn-submit">
@@ -266,17 +303,21 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
               </form>
 
               <p className="auth-switch">
-                Don't have an account?{' '}
-                <button onClick={() => switchTab('signup')}>Sign up free</button>
+                Don't have an account?{" "}
+                <button onClick={() => switchTab("signup")}>
+                  Sign up free
+                </button>
               </p>
             </>
           )}
 
           {/* ===== SIGNUP FORM ===== */}
-          {tab === 'signup' && (
+          {tab === "signup" && (
             <>
               <h2 className="auth-form-title">Create your account</h2>
-              <p className="auth-form-subtitle">Join your team's FlowDesk workspace</p>
+              <p className="auth-form-subtitle">
+                Join your team's FlowDesk workspace
+              </p>
 
               <form onSubmit={signupFormik.handleSubmit}>
                 <div className="form-row">
@@ -304,7 +345,7 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                   autoComplete="email"
                 />
 
-                <div className="form-row">
+                {/* <div className="form-row">
                   <FloatingInput
                     formik={signupFormik}
                     label="Employee Code"
@@ -325,13 +366,38 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                       <option value={1}>Manager</option>
                     </select>
                   </div>
+                </div> */}
+
+                <div className="form-row">
+                  <FloatingInput
+                    formik={signupFormik}
+                    label="Employee Code"
+                    name="employeeCode"
+                    type="text"
+                  />
+                  <div className="form-group">
+                    <select
+                      className="form-select role-style-select"
+                      name="role"
+                      value={signupFormik.values.role}
+                      onChange={signupFormik.handleChange}
+                      onBlur={signupFormik.handleBlur}
+                    >
+                      <option value="" disabled>
+                        Role
+                      </option>
+                      <option value={3}>Developer (SDE)</option>
+                      <option value={2}>Tech Lead</option>
+                      <option value={1}>Manager</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="form-group password-wrapper">
                   <div className="floating-field">
                     <input
                       className="form-input"
-                      type={showPassword ? 'text' : 'password'}
+                      type={showPassword ? "text" : "password"}
                       name="password"
                       value={signupFormik.values.password}
                       onChange={signupFormik.handleChange}
@@ -344,21 +410,24 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                   <button
                     type="button"
                     className="password-toggle"
-                    onClick={() => setShowPassword(p => !p)}
+                    onClick={() => setShowPassword((p) => !p)}
                     tabIndex={-1}
                   >
-                    {showPassword ? '🙈' : '👁️'}
+                    {showPassword ? "🙈" : "👁️"}
                   </button>
-                  {signupFormik.touched.password && signupFormik.errors.password && (
-                    <span className="field-error">{signupFormik.errors.password}</span>
-                  )}
+                  {signupFormik.touched.password &&
+                    signupFormik.errors.password && (
+                      <span className="field-error">
+                        {signupFormik.errors.password}
+                      </span>
+                    )}
                 </div>
 
                 <div className="form-group password-wrapper">
                   <div className="floating-field">
                     <input
                       className="form-input"
-                      type={showConfirm ? 'text' : 'password'}
+                      type={showConfirm ? "text" : "password"}
                       name="confirmPassword"
                       value={signupFormik.values.confirmPassword}
                       onChange={signupFormik.handleChange}
@@ -371,24 +440,31 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                   <button
                     type="button"
                     className="password-toggle"
-                    onClick={() => setShowConfirm(p => !p)}
+                    onClick={() => setShowConfirm((p) => !p)}
                     tabIndex={-1}
                   >
-                    {showConfirm ? '🙈' : '👁️'}
+                    {showConfirm ? "🙈" : "👁️"}
                   </button>
-                  {signupFormik.touched.confirmPassword && signupFormik.errors.confirmPassword && (
-                    <span className="field-error">{signupFormik.errors.confirmPassword}</span>
-                  )}
+                  {signupFormik.touched.confirmPassword &&
+                    signupFormik.errors.confirmPassword && (
+                      <span className="field-error">
+                        {signupFormik.errors.confirmPassword}
+                      </span>
+                    )}
                 </div>
 
-                <button type="submit" className="btn-submit" style={{ marginTop: 8 }}>
+                <button
+                  type="submit"
+                  className="btn-submit"
+                  style={{ marginTop: 8 }}
+                >
                   Create Account →
                 </button>
               </form>
 
               <p className="auth-switch">
-                Already have an account?{' '}
-                <button onClick={() => switchTab('login')}>Log in</button>
+                Already have an account?{" "}
+                <button onClick={() => switchTab("login")}>Log in</button>
               </p>
             </>
           )}
