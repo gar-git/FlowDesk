@@ -1,25 +1,9 @@
-import './styles.css';
-import { useState } from 'react';
-import LandingPage from './pages/LandingPage';
-import AuthPage from './pages/AuthPage';
+// App.jsx is kept for reference only.
+// The application is now fully driven by React Router (src/routes/index.jsx)
+// and bootstrapped in src/main.jsx with the JWTProvider + SnackbarProvider stack.
+//
+// Entry point: main.jsx → SnackbarProvider → JWTProvider → RouterProvider
 
-// Simple state-based router: 'landing' | 'login' | 'signup'
 export default function App() {
-  const [view, setView] = useState('landing');
-
-  if (view === 'login' || view === 'signup') {
-    return (
-      <AuthPage
-        initialTab={view}
-        onBack={() => setView('landing')}
-      />
-    );
-  }
-
-  return (
-    <LandingPage
-      onLogin={() => setView('login')}
-      onSignup={() => setView('signup')}
-    />
-  );
+    return null;
 }

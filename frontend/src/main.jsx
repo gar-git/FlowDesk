@@ -1,9 +1,22 @@
-import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
+import { RouterProvider } from 'react-router-dom';
+import router from './routes/index.jsx';
+import { SnackbarProvider } from './utils/SnackbarProvider.jsx';
+import { JWTProvider } from './context/JWTContext.jsx';
+import './styles.css';
+
+// ==============================|| APP BOOTSTRAP ||============================== //
+//
+// Provider stack (mirrors src/main.jsx pattern):
+//   RouterProvider
+//     └─ SnackbarProvider   (toast notifications)
+//        └─ JWTProvider     (auth state + token lifecycle)
+//           └─ RouterProvider routes
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
+    <SnackbarProvider>
+        <JWTProvider>
+            <RouterProvider router={router} />
+        </JWTProvider>
+    </SnackbarProvider>
 );
