@@ -21,6 +21,30 @@ const signupValidationSchema = Yup.object({
     .required('Please confirm your password'),
 });
 
+function FloatingInput({ formik, label, name, type = 'text', autoComplete, ...rest }) {
+  return (
+    <div className="form-group">
+      <div className="floating-field">
+        <input
+          className="form-input"
+          type={type}
+          name={name}
+          value={formik.values[name]}
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          autoComplete={autoComplete}
+          placeholder=" "
+          {...rest}
+        />
+        <label className="form-label">{label}</label>
+      </div>
+      {formik.touched[name] && formik.errors[name] && (
+        <span className="field-error">{formik.errors[name]}</span>
+      )}
+    </div>
+  );
+}
+
 export default function AuthPage({ initialTab = 'login', onBack }) {
   const { userLogin, userSignup } = useAuth();
   const navigate = useNavigate();
@@ -189,45 +213,36 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
               <p className="auth-form-subtitle">Log in to your FlowDesk workspace</p>
 
               <form onSubmit={loginFormik.handleSubmit}>
-                <div className="form-group">
-                  <label className="form-label">Work Email</label>
-                  <input
-                    className="form-input"
-                    type="email"
-                    placeholder="you@company.com"
-                    name="email"
-                    value={loginFormik.values.email}
-                    onChange={loginFormik.handleChange}
-                    onBlur={loginFormik.handleBlur}
-                    autoComplete="email"
-                  />
-                  {loginFormik.touched.email && loginFormik.errors.email && (
-                    <span className="field-error">{loginFormik.errors.email}</span>
-                  )}
-                </div>
+                <FloatingInput
+                  formik={loginFormik}
+                  label="Work Email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                />
 
-                <div className="form-group">
-                  <label className="form-label">Password</label>
-                  <div className="password-wrapper">
+                <div className="form-group password-wrapper">
+                  <div className="floating-field">
                     <input
                       className="form-input"
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="Your password"
                       name="password"
                       value={loginFormik.values.password}
                       onChange={loginFormik.handleChange}
                       onBlur={loginFormik.handleBlur}
                       autoComplete="current-password"
+                      placeholder=" "
                     />
-                    <button
-                      type="button"
-                      className="password-toggle"
-                      onClick={() => setShowPassword(p => !p)}
-                      tabIndex={-1}
-                    >
-                      {showPassword ? '🙈' : '👁️'}
-                    </button>
+                    <label className="form-label">Password</label>
                   </div>
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowPassword(p => !p)}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? '🙈' : '👁️'}
+                  </button>
                   {loginFormik.touched.password && loginFormik.errors.password && (
                     <span className="field-error">{loginFormik.errors.password}</span>
                   )}
@@ -265,73 +280,37 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
 
               <form onSubmit={signupFormik.handleSubmit}>
                 <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">First Name</label>
-                    <input
-                      className="form-input"
-                      type="text"
-                      placeholder="Ashish"
-                      name="firstName"
-                      value={signupFormik.values.firstName}
-                      onChange={signupFormik.handleChange}
-                      onBlur={signupFormik.handleBlur}
-                      autoComplete="given-name"
-                    />
-                    {signupFormik.touched.firstName && signupFormik.errors.firstName && (
-                      <span className="field-error">{signupFormik.errors.firstName}</span>
-                    )}
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Last Name</label>
-                    <input
-                      className="form-input"
-                      type="text"
-                      placeholder="Kumar"
-                      name="lastName"
-                      value={signupFormik.values.lastName}
-                      onChange={signupFormik.handleChange}
-                      onBlur={signupFormik.handleBlur}
-                      autoComplete="family-name"
-                    />
-                    {signupFormik.touched.lastName && signupFormik.errors.lastName && (
-                      <span className="field-error">{signupFormik.errors.lastName}</span>
-                    )}
-                  </div>
+                  <FloatingInput
+                    formik={signupFormik}
+                    label="First Name"
+                    name="firstName"
+                    type="text"
+                    autoComplete="given-name"
+                  />
+                  <FloatingInput
+                    formik={signupFormik}
+                    label="Last Name"
+                    name="lastName"
+                    type="text"
+                    autoComplete="family-name"
+                  />
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Work Email</label>
-                  <input
-                    className="form-input"
-                    type="email"
-                    placeholder="you@company.com"
-                    name="email"
-                    value={signupFormik.values.email}
-                    onChange={signupFormik.handleChange}
-                    onBlur={signupFormik.handleBlur}
-                    autoComplete="email"
-                  />
-                  {signupFormik.touched.email && signupFormik.errors.email && (
-                    <span className="field-error">{signupFormik.errors.email}</span>
-                  )}
-                </div>
+                <FloatingInput
+                  formik={signupFormik}
+                  label="Work Email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                />
 
                 <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Employee Code</label>
-                    <input
-                      className="form-input"
-                      type="text"
-                      placeholder="EMP-001"
-                      name="employeeCode"
-                      value={signupFormik.values.employeeCode}
-                      onChange={signupFormik.handleChange}
-                      onBlur={signupFormik.handleBlur}
-                    />
-                    {signupFormik.touched.employeeCode && signupFormik.errors.employeeCode && (
-                      <span className="field-error">{signupFormik.errors.employeeCode}</span>
-                    )}
-                  </div>
+                  <FloatingInput
+                    formik={signupFormik}
+                    label="Employee Code"
+                    name="employeeCode"
+                    type="text"
+                  />
                   <div className="form-group">
                     <label className="form-label">Role</label>
                     <select
@@ -348,55 +327,55 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Password</label>
-                  <div className="password-wrapper">
+                <div className="form-group password-wrapper">
+                  <div className="floating-field">
                     <input
                       className="form-input"
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="Min 8 characters"
                       name="password"
                       value={signupFormik.values.password}
                       onChange={signupFormik.handleChange}
                       onBlur={signupFormik.handleBlur}
                       autoComplete="new-password"
+                      placeholder=" "
                     />
-                    <button
-                      type="button"
-                      className="password-toggle"
-                      onClick={() => setShowPassword(p => !p)}
-                      tabIndex={-1}
-                    >
-                      {showPassword ? '🙈' : '👁️'}
-                    </button>
+                    <label className="form-label">Password</label>
                   </div>
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowPassword(p => !p)}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? '🙈' : '👁️'}
+                  </button>
                   {signupFormik.touched.password && signupFormik.errors.password && (
                     <span className="field-error">{signupFormik.errors.password}</span>
                   )}
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Confirm Password</label>
-                  <div className="password-wrapper">
+                <div className="form-group password-wrapper">
+                  <div className="floating-field">
                     <input
                       className="form-input"
                       type={showConfirm ? 'text' : 'password'}
-                      placeholder="Repeat your password"
                       name="confirmPassword"
                       value={signupFormik.values.confirmPassword}
                       onChange={signupFormik.handleChange}
                       onBlur={signupFormik.handleBlur}
                       autoComplete="new-password"
+                      placeholder=" "
                     />
-                    <button
-                      type="button"
-                      className="password-toggle"
-                      onClick={() => setShowConfirm(p => !p)}
-                      tabIndex={-1}
-                    >
-                      {showConfirm ? '🙈' : '👁️'}
-                    </button>
+                    <label className="form-label">Confirm Password</label>
                   </div>
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowConfirm(p => !p)}
+                    tabIndex={-1}
+                  >
+                    {showConfirm ? '🙈' : '👁️'}
+                  </button>
                   {signupFormik.touched.confirmPassword && signupFormik.errors.confirmPassword && (
                     <span className="field-error">{signupFormik.errors.confirmPassword}</span>
                   )}

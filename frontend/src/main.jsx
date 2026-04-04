@@ -3,6 +3,7 @@ import { RouterProvider } from 'react-router-dom';
 import router from './routes/index.jsx';
 import { SnackbarProvider } from './utils/SnackbarProvider.jsx';
 import { JWTProvider } from './context/JWTContext.jsx';
+import LenisProvider from './utils/LenisProvider.jsx';
 import './styles.css';
 
 // ==============================|| APP BOOTSTRAP ||============================== //
@@ -11,12 +12,15 @@ import './styles.css';
 //   RouterProvider
 //     └─ SnackbarProvider   (toast notifications)
 //        └─ JWTProvider     (auth state + token lifecycle)
-//           └─ RouterProvider routes
+//           └─ LenisProvider (smooth scroll)
+//              └─ RouterProvider routes
 
 ReactDOM.createRoot(document.getElementById('root')).render(
     <SnackbarProvider>
         <JWTProvider>
-            <RouterProvider router={router} />
+            <LenisProvider>
+                <RouterProvider router={router} />
+            </LenisProvider>
         </JWTProvider>
     </SnackbarProvider>
 );

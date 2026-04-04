@@ -915,9 +915,29 @@ body {
   letter-spacing: 0.3px;
 }
 
+.floating-field {
+  position: relative;
+}
+
+.floating-field .form-label {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.3px;
+  pointer-events: none;
+  transition: var(--transition);
+  background: rgba(10,10,18,0.92);
+  padding: 0 6px;
+  margin: 0;
+}
+
 .form-input {
   width: 100%;
-  padding: 12px 16px;
+  padding: 20px 16px 10px;
   background: rgba(255,255,255,0.04);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -926,6 +946,24 @@ body {
   font-family: inherit;
   transition: var(--transition);
   outline: none;
+}
+
+.form-input::placeholder { color: transparent; }
+
+.floating-field .form-input:focus + .form-label,
+.floating-field .form-input:not(:placeholder-shown) + .form-label {
+  top: -8px;
+  left: 12px;
+  transform: translateY(0);
+  font-size: 12px;
+  color: var(--purple);
+  padding: 0 6px;
+}
+
+.form-input:focus {
+  border-color: var(--purple);
+  background: rgba(108,99,255,0.05);
+  box-shadow: 0 0 0 3px rgba(108,99,255,0.12);
 }
 
 .form-input::placeholder { color: var(--text-muted); }
