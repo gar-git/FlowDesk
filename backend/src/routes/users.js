@@ -91,7 +91,7 @@ router.post('/login', async (req, res) => {
 
 router.get('/profile', checkToken, async (req, res) => {
     try {
-        console.log("req.user", req.user)
+        // console.log("req.user", req.user)
         const result = await db
             .select({
                 id: users.id,
@@ -107,7 +107,7 @@ router.get('/profile', checkToken, async (req, res) => {
             .where(eq(users.id, req.user.id))
             .limit(1);
 
-        console.log("profile result", result)
+        // console.log("profile result", result)
 
         if (!result.length) return res.status(404).send({ statusCode: 404, message: 'User not found' });
 
