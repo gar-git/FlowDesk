@@ -87,7 +87,7 @@ export default function AuthPage({ initialTab = "login", onBack }) {
       if (res.success) {
         navigate("/dashboard", { replace: true });
       } else {
-        setError(res.message || "Login failed.");
+        setError(res.message);
       }
     },
   });

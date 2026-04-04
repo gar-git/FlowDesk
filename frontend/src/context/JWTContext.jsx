@@ -6,7 +6,7 @@ import { useSnackbar } from '../utils/SnackbarProvider';
 import { API_Route } from '../utils/apiRoute';
 import { StatusCode } from '../utils/constants';
 import LoadingScreen from '../commoncomponents/LoadingScreen/LoadingScreen';
-import {login, signup} from '../api/auth.js'
+import {login, signup, logout as logoutApi} from '../api/auth.js'
 
 // ==============================|| JWT CONTEXT ||============================== //
 
@@ -33,7 +33,7 @@ export const JWTProvider = ({ children }) => {
         initAuth();
     }, []);
 
-    const initAuth = async () => {
+    const initAuth = async () => { 
         try {
             const token = localStorage.getItem('token');
 
@@ -65,13 +65,26 @@ export const JWTProvider = ({ children }) => {
             const response = await login({ email, password });
 
             if (response?.data?.statusCode === StatusCode.success) {
-                const { token, user } = response.data.data;
+                const { token } = response.data.data;
                 setSession(token);
-                localStorage.setItem('user', JSON.stringify(user));
 
-                dispatch({ type: LOGIN, payload: { user } });
-                showSnackbar('Login successful', 'success');
-                return { success: true };
+                // Fetch complete user profile after login
+                const profileResponse = await axiosServices.get(API_Route.getProfile);
+
+                if (profileResponse?.data?.statusCode === StatusCode.success) {
+                    const user = profileResponse.data.data;
+                    localStorage.setItem('user', JSON.stringify(user));
+                    dispatch({ type: LOGIN, payload: { user } });
+                    showSnackbar('Login successful', 'success');
+                    return { success: true };
+                } else {
+                    // If profile fetch fails, still try to use login user data as fallback
+                    const { user } = response.data.data;
+                    localStorage.setItem('user', JSON.stringify(user));
+                    dispatch({ type: LOGIN, payload: { user } });
+                    showSnackbar('Login successful', 'success');
+                    return { success: true };
+                }
             }
 
             const msg = response?.data?.message || 'Login failed.';

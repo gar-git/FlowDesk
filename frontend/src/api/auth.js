@@ -18,3 +18,12 @@ export async function login(reqData) {
     return error;
   }
 }
+
+export async function logout(reqData) {
+    try {
+        const response = await axios.post(API_Route.logout, reqData);
+        return response;
+    } catch (error) {
+        return error;
+    }
+}

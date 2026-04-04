@@ -4,6 +4,7 @@ export const API_Route = {
     // Auth
     signup: 'users/signup',
     login: 'users/login',
+    logout: 'users/logout',
 
     // User
     getProfile: 'users/profile',

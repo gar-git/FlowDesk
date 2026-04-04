@@ -76,9 +76,9 @@ router.post('/login', async (req, res) => {
 
         res.status(200).send({
             statusCode: 200,
+            message: "Login successful.",
             data: {
                 token,
-                message: "Login successfully.",
                 user: { id: user.id, name: user.name, email: user.email, roleId: user.roleId },
             },
         });
@@ -91,10 +91,12 @@ router.post('/login', async (req, res) => {
 
 router.get('/profile', checkToken, async (req, res) => {
     try {
+        console.log("req.user", req.user)
         const result = await db
             .select({
                 id: users.id,
-                name: users.name,
+                firstName: users.firstName,
+                lastName: users.lastName,
                 email: users.email,
                 roleId: users.roleId,
                 employeeCode: users.employeeCode,
@@ -104,6 +106,8 @@ router.get('/profile', checkToken, async (req, res) => {
             .from(users)
             .where(eq(users.id, req.user.id))
             .limit(1);
+
+        console.log("profile result", result)
 
         if (!result.length) return res.status(404).send({ statusCode: 404, message: 'User not found' });
 

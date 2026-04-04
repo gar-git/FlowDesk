@@ -3,6 +3,8 @@ import useAuth from '../hooks/useAuth';
 import { roleLabel, roleType, taskStatus } from '../utils/constants';
 // import { getAllTasksApi, getMineTasksApi, updateTaskApi } from '../api/tasks';
 // import { getTeamApi } from '../api/user';
+
+// import { logout } from '../api/auth';
 import { useSnackbar } from '../utils/SnackbarProvider';
 
 // ==============================|| DASHBOARD — role-aware ||============================== //
@@ -48,6 +50,11 @@ export default function Dashboard() {
             showSnackbar(res?.message || 'Update failed', 'error');
         }
     };
+
+    const handleLogout = async () => {
+        await logout();
+    };
+
 
     const filtered = activeTab === 'all'
         ? tasks
@@ -95,7 +102,7 @@ export default function Dashboard() {
                         </span>
                     </span>
                     <button
-                        onClick={logout}
+                        onClick={handleLogout}
                         style={{
                             padding: '7px 16px', borderRadius: 8, border: '1px solid var(--border)',
                             background: 'transparent', color: 'var(--text-secondary)', fontSize: 13,
