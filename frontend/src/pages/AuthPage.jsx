@@ -1,80 +1,89 @@
 import { useState } from 'react';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
 import useAuth from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 
+const loginValidationSchema = Yup.object({
+  email: Yup.string().email('Invalid email address').required('Email is required'),
+  password: Yup.string().required('Password is required'),
+});
+
+const signupValidationSchema = Yup.object({
+  firstName: Yup.string().required('First Name is required'),
+  lastName: Yup.string().required('Last Name is required'),
+  email: Yup.string().email('Invalid email address').required('Email is required'),
+  employeeCode: Yup.string().required('Employee Code is required'),
+  role: Yup.number().required('Role is required'),
+  password: Yup.string().min(8, 'Password must be at least 8 characters').required('Password is required'),
+  confirmPassword: Yup.string()
+    .oneOf([Yup.ref('password')], 'Passwords do not match')
+    .required('Please confirm your password'),
+});
+
 export default function AuthPage({ initialTab = 'login', onBack }) {
-  const { login, signup } = useAuth();
+  const { userLogin, userSignup } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState(initialTab); // 'login' | 'signup'
+  const [tab, setTab] = useState(initialTab);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
-  // Login state
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
-
-  // Signup state
-  const [signupData, setSignupData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    employeeCode: '',
-    role: 3,
-    password: '',
-    confirmPassword: '',
-  });
-
-  const handleSignupChange = (field) => (e) =>
-    setSignupData(prev => ({ ...prev, [field]: e.target.value }));
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-    if (!loginEmail || !loginPassword) {
-      setError('Please fill in all fields.');
-      return;
-    }
-    const res = await login(loginEmail, loginPassword);
-    if (res.success) {
-      navigate('/dashboard', { replace: true });
-    } else {
-      setError(res.message || 'Login failed.');
-    }
-  };
-
-  const handleSignup = async (e) => {
-    e.preventDefault();
-    setError('');
-    const { firstName, lastName, email, employeeCode, role, password, confirmPassword } = signupData;
-    if (!firstName || !lastName || !email || !employeeCode || !password || !confirmPassword) {
-      setError('Please fill in all required fields.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
-      return;
-    }
-    const res = await signup({ firstName, lastName, email, employeeCode, roleId: Number(role), password });
-    if (res.success) {
-      setSuccess('Account created! Redirecting to login…');
-      switchTab('login');
-    } else {
-      setError(res.message || 'Signup failed.');
-    }
-  };
 
   const switchTab = (newTab) => {
     setTab(newTab);
     setError('');
     setSuccess('');
   };
+
+  const loginFormik = useFormik({
+    initialValues: {
+      email: '',
+      password: '',
+    },
+    validationSchema: loginValidationSchema,
+    onSubmit: async (values) => {
+      // debugger
+      setError('');
+      const res = await userLogin(values.email, values.password);
+      if (res.success) {
+        navigate('/dashboard', { replace: true });
+      } else {
+        setError(res.message || 'Login failed.');
+      }
+    },
+  });
+
+  const signupFormik = useFormik({
+    initialValues: {
+      firstName: '',
+      lastName: '',
+      email: '',
+      employeeCode: '',
+      role: 3,
+      password: '',
+      confirmPassword: '',
+    },
+    validationSchema: signupValidationSchema,
+    onSubmit: async (values) => {
+      setError('');
+      const res = await userSignup({
+        firstName: values.firstName,
+        lastName: values.lastName,
+        email: values.email,
+        employeeCode: values.employeeCode,
+        roleId: Number(values.role),
+        password: values.password,
+      });
+      if (res.success) {
+        setSuccess('Account created! Redirecting to login…');
+        switchTab('login');
+      } else {
+        setError(res.message || 'Signup failed.');
+      }
+    },
+  });
 
   const testimonials = {
     login: {
@@ -179,17 +188,22 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
               <h2 className="auth-form-title">Welcome back</h2>
               <p className="auth-form-subtitle">Log in to your FlowDesk workspace</p>
 
-              <form onSubmit={handleLogin}>
+              <form onSubmit={loginFormik.handleSubmit}>
                 <div className="form-group">
                   <label className="form-label">Work Email</label>
                   <input
                     className="form-input"
                     type="email"
                     placeholder="you@company.com"
-                    value={loginEmail}
-                    onChange={e => setLoginEmail(e.target.value)}
+                    name="email"
+                    value={loginFormik.values.email}
+                    onChange={loginFormik.handleChange}
+                    onBlur={loginFormik.handleBlur}
                     autoComplete="email"
                   />
+                  {loginFormik.touched.email && loginFormik.errors.email && (
+                    <span className="field-error">{loginFormik.errors.email}</span>
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -199,8 +213,10 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                       className="form-input"
                       type={showPassword ? 'text' : 'password'}
                       placeholder="Your password"
-                      value={loginPassword}
-                      onChange={e => setLoginPassword(e.target.value)}
+                      name="password"
+                      value={loginFormik.values.password}
+                      onChange={loginFormik.handleChange}
+                      onBlur={loginFormik.handleBlur}
                       autoComplete="current-password"
                     />
                     <button
@@ -212,6 +228,9 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                       {showPassword ? '🙈' : '👁️'}
                     </button>
                   </div>
+                  {loginFormik.touched.password && loginFormik.errors.password && (
+                    <span className="field-error">{loginFormik.errors.password}</span>
+                  )}
                 </div>
 
                 <div className="form-footer">
@@ -244,7 +263,7 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
               <h2 className="auth-form-title">Create your account</h2>
               <p className="auth-form-subtitle">Join your team's FlowDesk workspace</p>
 
-              <form onSubmit={handleSignup}>
+              <form onSubmit={signupFormik.handleSubmit}>
                 <div className="form-row">
                   <div className="form-group">
                     <label className="form-label">First Name</label>
@@ -252,10 +271,15 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                       className="form-input"
                       type="text"
                       placeholder="Ashish"
-                      value={signupData.firstName}
-                      onChange={handleSignupChange('firstName')}
+                      name="firstName"
+                      value={signupFormik.values.firstName}
+                      onChange={signupFormik.handleChange}
+                      onBlur={signupFormik.handleBlur}
                       autoComplete="given-name"
                     />
+                    {signupFormik.touched.firstName && signupFormik.errors.firstName && (
+                      <span className="field-error">{signupFormik.errors.firstName}</span>
+                    )}
                   </div>
                   <div className="form-group">
                     <label className="form-label">Last Name</label>
@@ -263,10 +287,15 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                       className="form-input"
                       type="text"
                       placeholder="Kumar"
-                      value={signupData.lastName}
-                      onChange={handleSignupChange('lastName')}
+                      name="lastName"
+                      value={signupFormik.values.lastName}
+                      onChange={signupFormik.handleChange}
+                      onBlur={signupFormik.handleBlur}
                       autoComplete="family-name"
                     />
+                    {signupFormik.touched.lastName && signupFormik.errors.lastName && (
+                      <span className="field-error">{signupFormik.errors.lastName}</span>
+                    )}
                   </div>
                 </div>
 
@@ -276,10 +305,15 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                     className="form-input"
                     type="email"
                     placeholder="you@company.com"
-                    value={signupData.email}
-                    onChange={handleSignupChange('email')}
+                    name="email"
+                    value={signupFormik.values.email}
+                    onChange={signupFormik.handleChange}
+                    onBlur={signupFormik.handleBlur}
                     autoComplete="email"
                   />
+                  {signupFormik.touched.email && signupFormik.errors.email && (
+                    <span className="field-error">{signupFormik.errors.email}</span>
+                  )}
                 </div>
 
                 <div className="form-row">
@@ -289,16 +323,23 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                       className="form-input"
                       type="text"
                       placeholder="EMP-001"
-                      value={signupData.employeeCode}
-                      onChange={handleSignupChange('employeeCode')}
+                      name="employeeCode"
+                      value={signupFormik.values.employeeCode}
+                      onChange={signupFormik.handleChange}
+                      onBlur={signupFormik.handleBlur}
                     />
+                    {signupFormik.touched.employeeCode && signupFormik.errors.employeeCode && (
+                      <span className="field-error">{signupFormik.errors.employeeCode}</span>
+                    )}
                   </div>
                   <div className="form-group">
                     <label className="form-label">Role</label>
                     <select
                       className="form-select"
-                      value={signupData.role}
-                      onChange={handleSignupChange('role')}
+                      name="role"
+                      value={signupFormik.values.role}
+                      onChange={signupFormik.handleChange}
+                      onBlur={signupFormik.handleBlur}
                     >
                       <option value={3}>Developer (SDE)</option>
                       <option value={2}>Tech Lead</option>
@@ -314,8 +355,10 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                       className="form-input"
                       type={showPassword ? 'text' : 'password'}
                       placeholder="Min 8 characters"
-                      value={signupData.password}
-                      onChange={handleSignupChange('password')}
+                      name="password"
+                      value={signupFormik.values.password}
+                      onChange={signupFormik.handleChange}
+                      onBlur={signupFormik.handleBlur}
                       autoComplete="new-password"
                     />
                     <button
@@ -327,6 +370,9 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                       {showPassword ? '🙈' : '👁️'}
                     </button>
                   </div>
+                  {signupFormik.touched.password && signupFormik.errors.password && (
+                    <span className="field-error">{signupFormik.errors.password}</span>
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -336,8 +382,10 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                       className="form-input"
                       type={showConfirm ? 'text' : 'password'}
                       placeholder="Repeat your password"
-                      value={signupData.confirmPassword}
-                      onChange={handleSignupChange('confirmPassword')}
+                      name="confirmPassword"
+                      value={signupFormik.values.confirmPassword}
+                      onChange={signupFormik.handleChange}
+                      onBlur={signupFormik.handleBlur}
                       autoComplete="new-password"
                     />
                     <button
@@ -349,6 +397,9 @@ export default function AuthPage({ initialTab = 'login', onBack }) {
                       {showConfirm ? '🙈' : '👁️'}
                     </button>
                   </div>
+                  {signupFormik.touched.confirmPassword && signupFormik.errors.confirmPassword && (
+                    <span className="field-error">{signupFormik.errors.confirmPassword}</span>
+                  )}
                 </div>
 
                 <button type="submit" className="btn-submit" style={{ marginTop: 8 }}>

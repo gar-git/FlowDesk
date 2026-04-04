@@ -6,6 +6,7 @@ import { useSnackbar } from '../utils/SnackbarProvider';
 import { API_Route } from '../utils/apiRoute';
 import { StatusCode } from '../utils/constants';
 import LoadingScreen from '../commoncomponents/LoadingScreen/LoadingScreen';
+import {login, signup} from '../api/auth.js'
 
 // ==============================|| JWT CONTEXT ||============================== //
 
@@ -59,9 +60,9 @@ export const JWTProvider = ({ children }) => {
     };
 
     // Login — POST /users/login
-    const login = async (email, password) => {
+    const userLogin = async (email, password) => {
         try {
-            const response = await axiosServices.post(API_Route.login, { email, password });
+            const response = await login({ email, password });
 
             if (response?.data?.statusCode === StatusCode.success) {
                 const { token, user } = response.data.data;
@@ -84,9 +85,9 @@ export const JWTProvider = ({ children }) => {
     };
 
     // Signup — POST /users/signup
-    const signup = async (data) => {
+    const userSignup = async (data) => {
         try {
-            const response = await axiosServices.post(API_Route.signup, data);
+            const response = await signup(data);
 
             if (response?.data?.statusCode === StatusCode.created) {
                 showSnackbar('Account created! You can now log in.', 'success');
@@ -117,7 +118,7 @@ export const JWTProvider = ({ children }) => {
     }
 
     return (
-        <JWTContext.Provider value={{ ...state, login, signup, logout, initAuth }}>
+        <JWTContext.Provider value={{ ...state, userLogin, userSignup, logout, initAuth }}>
             {children}
         </JWTContext.Provider>
     );

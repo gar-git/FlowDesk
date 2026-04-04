@@ -1,18 +1,19 @@
-// All API endpoint paths — no logic, just route strings/builders
+// All API endpoint paths
+
 export const API_Route = {
     // Auth
-    signup:          'users/signup',
-    login:           'users/login',
+    signup: 'users/signup',
+    login: 'users/login',
 
     // User
-    getProfile:      'users/profile',
-    getTeam:         'users/team',
+    getProfile: 'users/profile',
+    getTeam: 'users/team',
     getRoleDropdown: 'users/roleDropdown',
 
     // Tasks — static
-    createTask:   'tasks',
+    createTask: 'tasks',
     getMineTasks: 'tasks/mine',
-    getAllTasks:   'tasks/all',
+    getAllTasks: 'tasks/all',
 
     // Tasks — dynamic (return URL string for a given id)
     forwardTask:   (id) => `tasks/${id}/forward`,

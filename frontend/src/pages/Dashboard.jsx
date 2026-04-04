@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import useAuth from '../hooks/useAuth';
 import { roleLabel, roleType, taskStatus } from '../utils/constants';
-import { getAllTasksApi, getMineTasksApi, updateTaskApi } from '../api/tasks';
-import { getTeamApi } from '../api/user';
+// import { getAllTasksApi, getMineTasksApi, updateTaskApi } from '../api/tasks';
+// import { getTeamApi } from '../api/user';
 import { useSnackbar } from '../utils/SnackbarProvider';
 
 // ==============================|| DASHBOARD — role-aware ||============================== //
@@ -19,7 +19,7 @@ export default function Dashboard() {
     const isManagerOrTL = user?.roleId === roleType.manager || user?.roleId === roleType.tl;
 
     useEffect(() => {
-        fetchData();
+        // fetchData();
     }, []);
 
     const fetchData = async () => {
@@ -32,10 +32,10 @@ export default function Dashboard() {
             setTasks(taskRes.data || []);
         }
 
-        if (isManagerOrTL) {
-            const teamRes = await getTeamApi();
-            if (teamRes?.statusCode === 200) setTeam(teamRes.data || []);
-        }
+        // if (isManagerOrTL) {
+        //     const teamRes = await getTeamApi();
+        //     if (teamRes?.statusCode === 200) setTeam(teamRes.data || []);
+        // }
         setLoading(false);
     };
 
