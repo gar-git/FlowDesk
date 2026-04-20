@@ -2,8 +2,18 @@ import { mysqlTable, int, varchar, text, smallint, date, timestamp, tinyint } fr
 
 // Role Master
 export const roleMaster = mysqlTable('role_master', {
-    id: int('id').autoincrement().primaryKey(), // ✅ serial → int + autoincrement
-    roleName: varchar('role_name', { length: 255 }).notNull().unique(), // ✅ text → varchar (better for indexing)
+    id: int('id').autoincrement().primaryKey(),
+    roleName: varchar('role_name', { length: 255 }).notNull().unique(),
+});
+
+// Companies
+export const companies = mysqlTable('companies', {
+    id: int('id').autoincrement().primaryKey(),
+    name: varchar('name', { length: 255 }).notNull(),
+    companyCode: varchar('company_code', { length: 20 }).notNull().unique(),
+    isDeleted: tinyint('is_deleted').notNull().default(0),
+    createdAt: timestamp('created_at').defaultNow(),
+    deletedAt: timestamp('deleted_at'),
 });
 
 // Users
@@ -14,12 +24,25 @@ export const users = mysqlTable('users', {
     email: varchar('email', { length: 255 }).notNull().unique(),
     password: text('password').notNull(),
     roleId: int('role_id').notNull().references(() => roleMaster.id),
-    isDeleted: tinyint('is_deleted').notNull().default(0), // 0 = active, 1 = deleted
-    employeeCode: varchar('employee_code', { length: 100 }).notNull().unique(),
+    companyId: int('company_id').notNull().references(() => companies.id),
+    isDeleted: tinyint('is_deleted').notNull().default(0),
+    employeeCode: varchar('employee_code', { length: 100 }).notNull(),
     managerId: int('manager_id').references(() => users.id),
     tlId: int('tl_id').references(() => users.id),
     createdAt: timestamp('created_at').defaultNow(),
-    deletedAt: timestamp('deleted_at')
+    deletedAt: timestamp('deleted_at'),
+});
+
+// Projects
+export const projects = mysqlTable('projects', {
+    id: int('id').autoincrement().primaryKey(),
+    name: varchar('name', { length: 255 }).notNull(),
+    description: text('description'),
+    companyId: int('company_id').notNull().references(() => companies.id),
+    createdBy: int('created_by').notNull().references(() => users.id),
+    isDeleted: tinyint('is_deleted').notNull().default(0),
+    createdAt: timestamp('created_at').defaultNow(),
+    deletedAt: timestamp('deleted_at'),
 });
 
 // Tasks
@@ -29,6 +52,7 @@ export const tasks = mysqlTable('tasks', {
     description: text('description'),
     // 1=todo, 2=ongoing, 3=completed
     status: smallint('status').notNull().default(1),
+    projectId: int('project_id').notNull().references(() => projects.id),
     creatorId: int('creator_id').references(() => users.id),
     assigneeId: int('assignee_id').references(() => users.id),
     // 1=low, 2=medium, 3=high

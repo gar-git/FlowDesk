@@ -1,7 +1,7 @@
 import express from 'express';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, and } from 'drizzle-orm';
 import { db } from '../db.js';
-import { tasks, users } from '../db/schema.js';
+import { tasks, users, projects } from '../db/schema.js';
 import { notificationQueue } from '../queues/notificationQueue.js';
 import { PRIORITY, TASK_STATUS } from '../helpers/constants.js';
 import dotenv from 'dotenv';
@@ -11,10 +11,27 @@ dotenv.config();
 const router = express.Router();
 
 
+// POST /api/tasks
 router.post('/', checkToken, async (req, res) => {
     try {
-        const { title, description, assignee_id, priority = 'medium', due_date = null } = req.body;
+        const { title, description, assignee_id, priority = 'medium', due_date = null, projectId } = req.body;
         const creatorId = req.user.id;
+        const { companyId } = req.user;
+
+        if (!projectId) return res.status(400).send({ statusCode: 400, message: 'projectId is required' });
+
+        // Verify project belongs to user's company
+        const projectRes = await db
+            .select({ id: projects.id })
+            .from(projects)
+            .where(and(
+                eq(projects.id, projectId),
+                eq(projects.companyId, companyId),
+                eq(projects.isDeleted, 0)
+            ))
+            .limit(1);
+
+        if (!projectRes.length) return res.status(404).send({ statusCode: 404, message: 'Project not found' });
 
         const result = await db
             .insert(tasks)
@@ -22,6 +39,7 @@ router.post('/', checkToken, async (req, res) => {
                 title,
                 description,
                 status: TASK_STATUS.TODO,
+                projectId,
                 creatorId,
                 assigneeId: assignee_id,
                 priority: PRIORITY[priority.toUpperCase()] ?? PRIORITY.MEDIUM,
@@ -48,6 +66,7 @@ router.post('/', checkToken, async (req, res) => {
 });
 
 
+// GET /api/tasks/mine
 router.get('/mine', checkToken, async (req, res) => {
     try {
         const result = await db
@@ -64,6 +83,7 @@ router.get('/mine', checkToken, async (req, res) => {
 });
 
 
+// GET /api/tasks/all
 router.get('/all', checkToken, async (req, res) => {
     try {
         const { roleId, id } = req.user;
@@ -73,7 +93,10 @@ router.get('/all', checkToken, async (req, res) => {
             const members = await db
                 .select({ id: users.id })
                 .from(users)
-                .where(roleId === 1 ? eq(users.managerId, id) : eq(users.tlId, id));
+                .where(and(
+                    roleId === 1 ? eq(users.managerId, id) : eq(users.tlId, id),
+                    eq(users.isDeleted, 0)
+                ));
 
             const ids = members.map(m => m.id).concat([id]);
 
@@ -84,10 +107,11 @@ router.get('/all', checkToken, async (req, res) => {
                     description: tasks.description,
                     status: tasks.status,
                     priority: tasks.priority,
+                    projectId: tasks.projectId,
                     dueDate: tasks.dueDate,
                     creatorId: tasks.creatorId,
                     assigneeId: tasks.assigneeId,
-                    assigneeName: users.name,
+                    assigneeName: users.firstName,
                     createdAt: tasks.createdAt,
                     updatedAt: tasks.updatedAt,
                 })
@@ -114,6 +138,7 @@ router.get('/all', checkToken, async (req, res) => {
 });
 
 
+// PUT /api/tasks/:id/forward
 router.put('/:id/forward', checkToken, async (req, res) => {
     try {
         const id = parseInt(req.params.id);
@@ -147,6 +172,7 @@ router.put('/:id/forward', checkToken, async (req, res) => {
 });
 
 
+// POST /api/tasks/:id/forward/accept
 router.post('/:id/forward/accept', checkToken, async (req, res) => {
     try {
         const id = parseInt(req.params.id);
@@ -181,6 +207,7 @@ router.post('/:id/forward/accept', checkToken, async (req, res) => {
 });
 
 
+// PATCH /api/tasks/:id
 router.patch('/:id', checkToken, async (req, res) => {
     try {
         const id = parseInt(req.params.id);
@@ -207,6 +234,5 @@ router.patch('/:id', checkToken, async (req, res) => {
         res.status(500).send({ statusCode: 500, message: err.message });
     }
 });
-
 
 export default router;

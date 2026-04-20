@@ -2,9 +2,10 @@ import express from 'express';
 import http from 'http';
 import cors from 'cors';
 import { Server as SocketIOServer } from 'socket.io';
-// import { pool } from './db.js';
 import userRoutes from './routes/users.js';
 import taskRoutes from './routes/tasks.js';
+import companyRoutes from './routes/companies.js';
+import projectRoutes from './routes/projects.js';
 import { notificationQueue } from './queues/notificationQueue.js';
 import dotenv from "dotenv";
 
@@ -16,7 +17,9 @@ const io = new SocketIOServer(server, { cors: { origin: '*', methods: ['GET', 'P
 app.use(cors());
 app.use(express.json());
 
+app.use('/api/companies', companyRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskRoutes);
 
 const socketUsers = new Map();
@@ -31,7 +34,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('task-forward', async ({ taskId, fromUserId, toUserId }) => {
-        // can be extended with acceptance flow in task routes + DB status
         const notify = {
             toUserId,
             type: 'task_forward_request',
@@ -43,7 +45,7 @@ io.on('connection', (socket) => {
     });
 });
 
-// Notification queue processor (backend side deliverer)
+// Notification queue processor
 import { Worker } from 'bullmq';
 const redisConnection = {
     ...notificationQueue.opts.connection,

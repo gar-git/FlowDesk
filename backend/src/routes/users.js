@@ -1,20 +1,38 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { eq, asc } from 'drizzle-orm';
+import { eq, asc, and } from 'drizzle-orm';
 import { db } from '../db.js';
-import { users, roleMaster } from '../db/schema.js';
+import { users, roleMaster, companies } from '../db/schema.js';
 import dotenv from 'dotenv';
 import { checkToken } from '../middlewares/checkToken.js';
-import { blockToken  } from '../helpers/tokenBlocklist.js';
+import { blockToken } from '../helpers/tokenBlocklist.js';
 
 dotenv.config();
 const router = express.Router();
 
 
+// POST /api/users/signup
+// Requires companyCode to join a company
 router.post('/signup', async (req, res) => {
     try {
-        const { firstName, lastName, email, password, roleId, employeeCode, managerId, tlId } = req.body;
+        const { firstName, lastName, email, password, roleId, employeeCode, managerId, tlId, companyCode } = req.body;
+
+        if (!companyCode) return res.status(400).send({ statusCode: 400, message: 'Company code is required' });
+
+        // Resolve companyId from companyCode
+        const companyResult = await db
+            .select({ id: companies.id })
+            .from(companies)
+            .where(and(
+                eq(companies.companyCode, companyCode),
+                eq(companies.isDeleted, 0)
+            ))
+            .limit(1);
+
+        if (!companyResult.length) return res.status(400).send({ statusCode: 400, message: 'Invalid company code' });
+
+        const companyId = companyResult[0].id;
         const encrypted = await bcrypt.hash(password, 10);
 
         const result = await db
@@ -25,6 +43,7 @@ router.post('/signup', async (req, res) => {
                 email,
                 password: encrypted,
                 roleId,
+                companyId,
                 employeeCode,
                 managerId: managerId || null,
                 tlId: tlId || null,
@@ -37,20 +56,22 @@ router.post('/signup', async (req, res) => {
                 lastName: users.lastName,
                 email: users.email,
                 roleId: users.roleId,
+                companyId: users.companyId,
                 employeeCode: users.employeeCode,
             })
             .from(users)
             .where(eq(users.id, result[0].insertId))
             .limit(1);
 
-        res.status(201).send({ statusCode: 201, message: "User created successfully.", data: newUser[0] });
+        res.status(201).send({ statusCode: 201, message: 'User created successfully.', data: newUser[0] });
     } catch (err) {
         console.error('Signup error:', err.message);
-        res.status(500).send({ statusCode: 500, message: "Error occurred" });
+        res.status(500).send({ statusCode: 500, message: 'Error occurred' });
     }
 });
 
 
+// POST /api/users/login
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -58,8 +79,10 @@ router.post('/login', async (req, res) => {
         const result = await db
             .select()
             .from(users)
-            .where(eq(users.email, email),
-                    eq(users.isDeleted, 0))
+            .where(and(
+                eq(users.email, email),
+                eq(users.isDeleted, 0)
+            ))
             .limit(1);
 
         if (!result.length) return res.status(400).send({ statusCode: 400, message: 'Invalid credentials' });
@@ -69,29 +92,36 @@ router.post('/login', async (req, res) => {
         if (!valid) return res.status(400).send({ statusCode: 400, message: 'Invalid credentials' });
 
         const token = jwt.sign(
-            { id: user.id, name: user.name, roleId: user.roleId },
+            { id: user.id, firstName: user.firstName, roleId: user.roleId, companyId: user.companyId },
             process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );
 
         res.status(200).send({
             statusCode: 200,
-            message: "Login successful.",
+            message: 'Login successful.',
             data: {
                 token,
-                user: { id: user.id, name: user.name, email: user.email, roleId: user.roleId },
+                user: {
+                    id: user.id,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    email: user.email,
+                    roleId: user.roleId,
+                    companyId: user.companyId,
+                },
             },
         });
     } catch (err) {
         console.error('Login error:', err.message);
-        res.status(500).send({ statusCode: 500, message: "Error occurred" });
+        res.status(500).send({ statusCode: 500, message: 'Error occurred' });
     }
 });
 
 
+// GET /api/users/profile
 router.get('/profile', checkToken, async (req, res) => {
     try {
-        // console.log("req.user", req.user)
         const result = await db
             .select({
                 id: users.id,
@@ -99,6 +129,7 @@ router.get('/profile', checkToken, async (req, res) => {
                 lastName: users.lastName,
                 email: users.email,
                 roleId: users.roleId,
+                companyId: users.companyId,
                 employeeCode: users.employeeCode,
                 managerId: users.managerId,
                 tlId: users.tlId,
@@ -107,62 +138,70 @@ router.get('/profile', checkToken, async (req, res) => {
             .where(eq(users.id, req.user.id))
             .limit(1);
 
-        // console.log("profile result", result)
-
         if (!result.length) return res.status(404).send({ statusCode: 404, message: 'User not found' });
 
-        res.status(200).send({ statusCode: 200, message: "Profile retrieved successfully.", data: result[0] });
+        res.status(200).send({ statusCode: 200, message: 'Profile retrieved successfully.', data: result[0] });
     } catch (err) {
         console.error('Profile error:', err);
-        res.status(500).send({ statusCode: 500, message: "Error occurred" });
+        res.status(500).send({ statusCode: 500, message: 'Error occurred' });
     }
 });
 
 
+// GET /api/users/team
 router.get('/team', checkToken, async (req, res) => {
     try {
         const { roleId, id } = req.user;
 
-        // roleId 1 = Manager
+        // Manager
         if (roleId === 1) {
             const devs = await db
                 .select({
                     id: users.id,
-                    name: users.name,
+                    firstName: users.firstName,
+                    lastName: users.lastName,
                     email: users.email,
                     roleId: users.roleId,
                     employeeCode: users.employeeCode,
                 })
                 .from(users)
-                .where(eq(users.managerId, id));
+                .where(and(
+                    eq(users.managerId, id),
+                    eq(users.isDeleted, 0)
+                ));
 
-            return res.status(200).send({ statusCode: 200, message: "Team members retrieved successfully.", data: devs });
+            return res.status(200).send({ statusCode: 200, message: 'Team members retrieved successfully.', data: devs });
         }
 
-        // roleId 2 = Team Lead
+        // Team Lead
         if (roleId === 2) {
             const members = await db
                 .select({
                     id: users.id,
-                    name: users.name,
+                    firstName: users.firstName,
+                    lastName: users.lastName,
                     email: users.email,
                     roleId: users.roleId,
                     employeeCode: users.employeeCode,
                 })
                 .from(users)
-                .where(eq(users.tlId, id));
+                .where(and(
+                    eq(users.tlId, id),
+                    eq(users.isDeleted, 0)
+                ));
 
-            return res.status(200).send({ statusCode: 200, message: "Team members retrieved successfully.", data: members });
+            return res.status(200).send({ statusCode: 200, message: 'Team members retrieved successfully.', data: members });
         }
 
         return res.status(403).send({ statusCode: 403, message: 'Access denied' });
     } catch (err) {
         console.error('Team error:', err.message);
-        res.status(500).send({ statusCode: 500, message: "Error occurred" });
+        res.status(500).send({ statusCode: 500, message: 'Error occurred' });
     }
 });
 
 
+// GET /api/users/roleDropdown
 router.get('/roleDropdown', async (req, res) => {
     try {
         const result = await db
@@ -173,24 +212,25 @@ router.get('/roleDropdown', async (req, res) => {
             .from(roleMaster)
             .orderBy(asc(roleMaster.id));
 
+        if (!result.length) return res.status(404).send({ statusCode: 404, message: 'No roles found' });
 
-        if (!result.length) return res.status(404).send({ statusCode: 404, message: 'User not found' });
-
-        res.status(200).send({ statusCode: 200, message: "Profile retrieved successfully.", data: result });
+        res.status(200).send({ statusCode: 200, message: 'Roles retrieved successfully.', data: result });
     } catch (err) {
-        console.error('Profile error:', err.message);
-        res.status(500).send({ statusCode: 500, message: "Error occurred" });
+        console.error('Role dropdown error:', err.message);
+        res.status(500).send({ statusCode: 500, message: 'Error occurred' });
     }
 });
 
+
+// POST /api/users/logout
 router.post('/logout', checkToken, (req, res) => {
     try {
-        const token = req.token; // set by checkToken middleware
+        const token = req.token;
         blockToken(token);
         res.status(200).send({ statusCode: 200, message: 'Logged out successfully' });
     } catch (err) {
         console.error('Logout error:', err.message);
-        res.status(500).send({ statusCode: 500, message: "Error occurred" });
+        res.status(500).send({ statusCode: 500, message: 'Error occurred' });
     }
 });
 

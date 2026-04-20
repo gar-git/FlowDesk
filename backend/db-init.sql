@@ -7,7 +7,19 @@ CREATE TABLE IF NOT EXISTS role_master (
 INSERT IGNORE INTO role_master (id, role_name) VALUES
   (1, 'Manager'),
   (2, 'Team Lead'),
-  (3, 'Developer');
+  (3, 'Developer'),
+  (4, 'Admin');
+
+
+-- companies table
+CREATE TABLE IF NOT EXISTS companies (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  company_code VARCHAR(20) NOT NULL UNIQUE,
+  is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL DEFAULT NULL
+);
 
 
 -- users table
@@ -20,9 +32,10 @@ CREATE TABLE IF NOT EXISTS users (
   password TEXT NOT NULL,
 
   role_id INT NOT NULL,
+  company_id INT NOT NULL,
   is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 
-  employee_code VARCHAR(100),
+  employee_code VARCHAR(100) NOT NULL,
   manager_id INT,
   tl_id INT,
 
@@ -30,8 +43,26 @@ CREATE TABLE IF NOT EXISTS users (
   deleted_at TIMESTAMP NULL DEFAULT NULL,
 
   FOREIGN KEY (role_id) REFERENCES role_master(id),
+  FOREIGN KEY (company_id) REFERENCES companies(id),
   FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE SET NULL,
   FOREIGN KEY (tl_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+
+-- projects table
+CREATE TABLE IF NOT EXISTS projects (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  company_id INT NOT NULL,
+  created_by INT NOT NULL,
+  is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL DEFAULT NULL,
+
+  FOREIGN KEY (company_id) REFERENCES companies(id),
+  FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
 
@@ -44,6 +75,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   -- status: 1=todo, 2=ongoing, 3=completed
   status SMALLINT NOT NULL DEFAULT 1,
 
+  project_id INT NOT NULL,
   creator_id INT,
   assignee_id INT,
 
@@ -57,6 +89,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
+  FOREIGN KEY (project_id) REFERENCES projects(id),
   FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL,
   FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL,
   FOREIGN KEY (forward_from) REFERENCES users(id),
