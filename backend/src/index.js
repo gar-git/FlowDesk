@@ -7,6 +7,7 @@ import taskRoutes from './routes/tasks.js';
 import companyRoutes from './routes/companies.js';
 import projectRoutes from './routes/projects.js';
 import { notificationQueue } from './queues/notificationQueue.js';
+import { apiLogger } from './middlewares/logger.js';
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -16,6 +17,7 @@ const io = new SocketIOServer(server, { cors: { origin: '*', methods: ['GET', 'P
 
 app.use(cors());
 app.use(express.json());
+app.use(apiLogger);
 
 app.use('/api/companies', companyRoutes);
 app.use('/api/users', userRoutes);
