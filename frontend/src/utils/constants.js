@@ -15,6 +15,7 @@ export const roleType = {
     manager:   1,
     tl:        2,
     developer: 3,
+    admin:     4,
 };
 
 // Human-readable role labels
@@ -22,7 +23,14 @@ export const roleLabel = {
     1: 'Manager',
     2: 'Tech Lead',
     3: 'Developer',
+    4: 'Admin',
 };
+
+/** Safe label when roleId is missing or unknown */
+export function getRoleLabel(roleId) {
+    if (roleId == null) return 'User';
+    return roleLabel[roleId] ?? `Role ${roleId}`;
+}
 
 // Task statuses — must match TASK_STATUS constants in backend helpers/constants.js
 export const taskStatus = {

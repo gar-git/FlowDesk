@@ -97,17 +97,44 @@ export const JWTProvider = ({ children }) => {
         }
     };
 
+    /** Apply an existing JWT (e.g. after company registration) and load profile */
+    const loginWithToken = async (token) => {
+        try {
+            setSession(token);
+            const profileResponse = await axiosServices.get(API_Route.getProfile);
+
+            if (profileResponse?.data?.statusCode === StatusCode.success) {
+                const user = profileResponse.data.data;
+                localStorage.setItem('user', JSON.stringify(user));
+                dispatch({ type: LOGIN, payload: { user } });
+                showSnackbar('Welcome to FlowDesk', 'success');
+                return { success: true };
+            }
+
+            setSession(null);
+            showSnackbar('Could not load your profile.', 'error');
+            return { success: false, message: 'Profile load failed' };
+        } catch (err) {
+            setSession(null);
+            const msg = err?.message || 'Something went wrong.';
+            showSnackbar(msg, 'error');
+            return { success: false, message: msg };
+        }
+    };
+
     // Signup — POST /users/signup
     const userSignup = async (data) => {
         try {
             const response = await signup(data);
+            // Axios success: { data: { statusCode, ... } }; API errors return body on `response` (no .data)
+            const body = response?.data ?? response;
 
-            if (response?.data?.statusCode === StatusCode.created) {
+            if (body?.statusCode === StatusCode.created) {
                 showSnackbar('Account created! You can now log in.', 'success');
                 return { success: true };
             }
 
-            const msg = response?.data?.message || 'Signup failed.';
+            const msg = body?.message || 'Signup failed.';
             showSnackbar(msg, 'error');
             return { success: false, message: msg };
         } catch (err) {
@@ -137,7 +164,7 @@ export const JWTProvider = ({ children }) => {
     }
 
     return (
-        <JWTContext.Provider value={{ ...state, userLogin, userSignup, logout, initAuth }}>
+        <JWTContext.Provider value={{ ...state, userLogin, userSignup, loginWithToken, logout, initAuth }}>
             {children}
         </JWTContext.Provider>
     );

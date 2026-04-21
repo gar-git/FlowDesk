@@ -45,6 +45,15 @@ export const projects = mysqlTable('projects', {
     deletedAt: timestamp('deleted_at'),
 });
 
+// Project membership (who is assigned to a project)
+export const projectMembers = mysqlTable('project_members', {
+    id: int('id').autoincrement().primaryKey(),
+    projectId: int('project_id').notNull().references(() => projects.id),
+    userId: int('user_id').notNull().references(() => users.id),
+    addedBy: int('added_by').notNull().references(() => users.id),
+    createdAt: timestamp('created_at').defaultNow(),
+});
+
 // Tasks
 export const tasks = mysqlTable('tasks', {
     id: int('id').autoincrement().primaryKey(),

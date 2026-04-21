@@ -66,7 +66,7 @@ const devPerms = [
   'See who assigned each task',
 ];
 
-export default function LandingPage({ onLogin, onSignup }) {
+export default function LandingPage({ onLogin, onSignup, onRegisterCompany }) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -86,6 +86,11 @@ export default function LandingPage({ onLogin, onSignup }) {
         <div className="nav-links">
           <a href="#features" className="nav-link">Features</a>
           <a href="#roles" className="nav-link">Roles</a>
+          {onRegisterCompany && (
+            <button type="button" className="nav-link" onClick={onRegisterCompany}>
+              Create company
+            </button>
+          )}
           <button className="btn-nav-login" onClick={onLogin}>Log In</button>
           <button className="btn-nav-signup" onClick={onSignup}>Get Started</button>
         </div>
@@ -114,6 +119,11 @@ export default function LandingPage({ onLogin, onSignup }) {
           <button className="btn-secondary" onClick={onLogin}>
             Sign in to your workspace
           </button>
+          {onRegisterCompany && (
+            <button type="button" className="btn-secondary hero-cta-org" onClick={onRegisterCompany}>
+              New organization? Create company
+            </button>
+          )}
         </div>
 
         {/* PREVIEW */}

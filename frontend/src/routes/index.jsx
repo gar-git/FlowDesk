@@ -18,6 +18,7 @@ const router = createBrowserRouter([
         element: <LandingPage
             onLogin={() => window.location.href = '/login'}
             onSignup={() => window.location.href = '/signup'}
+            onRegisterCompany={() => window.location.href = '/register-company'}
         />,
     },
 

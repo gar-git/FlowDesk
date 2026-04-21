@@ -11,12 +11,22 @@ const loginValidationSchema = Yup.object({
   password: Yup.string().required("Password is required"),
 });
 
+// Matches backend-generated codes: FLOW- + 4 alphanumeric (see companies route)
+const COMPANY_CODE_REGEX = /^FLOW-[A-Z0-9]{4}$/;
+
 const signupValidationSchema = Yup.object({
   firstName: Yup.string().required("First Name is required"),
   lastName: Yup.string().required("Last Name is required"),
   email: Yup.string()
     .email("Invalid email address")
     .required("Email is required"),
+  companyCode: Yup.string()
+    .required("Company code is required")
+    .transform((v) => (typeof v === "string" ? v.trim().toUpperCase() : v))
+    .matches(
+      COMPANY_CODE_REGEX,
+      "Enter a valid code from your admin (e.g. FLOW-X9K2)"
+    ),
   employeeCode: Yup.string().required("Employee Code is required"),
   role: Yup.number().required("Role is required"),
   password: Yup.string()
@@ -97,6 +107,7 @@ export default function AuthPage({ initialTab = "login", onBack }) {
       firstName: "",
       lastName: "",
       email: "",
+      companyCode: "",
       employeeCode: "",
       role: 3,
       password: "",
@@ -105,10 +116,15 @@ export default function AuthPage({ initialTab = "login", onBack }) {
     validationSchema: signupValidationSchema,
     onSubmit: async (values) => {
       setError("");
+      const code =
+        typeof values.companyCode === "string"
+          ? values.companyCode.trim().toUpperCase()
+          : "";
       const res = await userSignup({
         firstName: values.firstName,
         lastName: values.lastName,
         email: values.email,
+        companyCode: code,
         employeeCode: values.employeeCode,
         roleId: Number(values.role),
         password: values.password,
@@ -308,6 +324,15 @@ export default function AuthPage({ initialTab = "login", onBack }) {
                   Sign up free
                 </button>
               </p>
+              <p className="auth-switch" style={{ marginTop: 12 }}>
+                New organization?{" "}
+                <button
+                  type="button"
+                  onClick={() => navigate("/register-company")}
+                >
+                  Create company
+                </button>
+              </p>
             </>
           )}
 
@@ -344,6 +369,19 @@ export default function AuthPage({ initialTab = "login", onBack }) {
                   type="email"
                   autoComplete="email"
                 />
+
+                <FloatingInput
+                  formik={signupFormik}
+                  label="Company code"
+                  name="companyCode"
+                  type="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <p className="auth-field-hint">
+                  Ask your admin for your organization code. Registration only
+                  works with a valid code.
+                </p>
 
                 {/* <div className="form-row">
                   <FloatingInput
@@ -465,6 +503,15 @@ export default function AuthPage({ initialTab = "login", onBack }) {
               <p className="auth-switch">
                 Already have an account?{" "}
                 <button onClick={() => switchTab("login")}>Log in</button>
+              </p>
+              <p className="auth-switch" style={{ marginTop: 12 }}>
+                Admin setting up a workspace?{" "}
+                <button
+                  type="button"
+                  onClick={() => navigate("/register-company")}
+                >
+                  Register your company
+                </button>
               </p>
             </>
           )}

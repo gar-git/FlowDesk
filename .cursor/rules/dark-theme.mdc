@@ -1,0 +1,23 @@
+---
+description: FlowDesk is dark-theme only — UI and styling conventions
+alwaysApply: true
+---
+
+# Dark theme only
+
+FlowDesk does **not** ship a light theme. Treat the app as **dark-only** unless the user explicitly asks otherwise.
+
+## Do
+
+- Use existing tokens from `styles.css`: `var(--bg-primary)`, `var(--bg-card)`, `var(--text-primary)`, `var(--text-secondary)`, `var(--border)`, `var(--purple)`, etc.
+- Style new UI (forms, modals, tables, dropdowns) to match current auth/dashboard patterns: dark surfaces, readable contrast, muted secondary text.
+- For native controls (`select`, inputs), keep **`color-scheme: dark`** where appropriate and explicit **`option` / focus** colors so OS dropdown lists stay readable on Windows/Chrome.
+- Prefer shared classes (e.g. `form-input`, `form-select`, `btn-submit`) over one-off light backgrounds.
+
+## Don’t
+
+- Add light/dark **theme toggles**, `prefers-color-scheme` branching, or a second palette “for light mode.”
+- Use white or near-white **page backgrounds** or **large light panels** that break the dark aesthetic.
+- Rely on browser default form colors without checking contrast on dark backgrounds.
+
+If a third-party component defaults to light styling, override it to match the dark tokens above.

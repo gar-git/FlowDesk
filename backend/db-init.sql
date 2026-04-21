@@ -66,6 +66,20 @@ CREATE TABLE IF NOT EXISTS projects (
 );
 
 
+-- project members (assign users to projects)
+CREATE TABLE IF NOT EXISTS project_members (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  project_id INT NOT NULL,
+  user_id INT NOT NULL,
+  added_by INT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_project_user (project_id, user_id),
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (added_by) REFERENCES users(id)
+);
+
+
 -- tasks table
 CREATE TABLE IF NOT EXISTS tasks (
   id INT AUTO_INCREMENT PRIMARY KEY,

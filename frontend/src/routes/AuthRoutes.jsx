@@ -6,6 +6,7 @@ import GuestGuard from '../utils/GuestGuard';
 // ==============================|| AUTH ROUTES — only accessible when NOT logged in ||============================== //
 
 const AuthPage = Loadable(lazy(() => import('../pages/AuthPage')));
+const CreateCompanyPage = Loadable(lazy(() => import('../pages/CreateCompanyPage')));
 
 const AuthRoutes = {
     path: '/',
@@ -22,6 +23,10 @@ const AuthRoutes = {
         {
             path: 'signup',
             element: <AuthPage initialTab="signup" onBack={() => window.location.href = '/'} />,
+        },
+        {
+            path: 'register-company',
+            element: <CreateCompanyPage onBack={() => window.location.href = '/'} />,
         },
     ],
 };
