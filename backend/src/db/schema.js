@@ -67,6 +67,7 @@ export const tasks = mysqlTable('tasks', {
     // 1=low, 2=medium, 3=high
     priority: smallint('priority').notNull().default(2),
     dueDate: date('due_date'),
+    startDate: date('start_date'),
     forwardFrom: int('forward_from').references(() => users.id),
     pendingForwardTo: int('pending_forward_to').references(() => users.id),
     createdAt: timestamp('created_at').defaultNow(),

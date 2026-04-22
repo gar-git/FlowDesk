@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   priority SMALLINT NOT NULL DEFAULT 2,
 
   due_date DATE,
+  start_date DATE,
   forward_from INT,
   pending_forward_to INT,
 

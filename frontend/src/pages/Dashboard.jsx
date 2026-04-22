@@ -1,13 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useAuth from '../hooks/useAuth';
-import { getRoleLabel, roleType, taskStatus, StatusCode } from '../utils/constants';
+import { getRoleLabel, roleType, StatusCode } from '../utils/constants';
+import { normalizeTask } from '../utils/taskApi';
 import { useSnackbar } from '../utils/SnackbarProvider';
 import { getCompanyMe } from '../api/companies';
 import { getTeam, createUserByAdmin, getRoleDropdown, getRoster } from '../api/users';
+import { listProjects } from '../api/projects';
+import { listTasks } from '../api/tasks';
 import OrganizationPanel from '../components/dashboard/OrganizationPanel';
 import ProjectsPanel from '../components/dashboard/ProjectsPanel';
-
-// import { getAllTasksApi, getMineTasksApi, updateTaskApi } from '../api/tasks';
+import TaskBoardKanban from '../components/dashboard/TaskBoardKanban';
+import AddTaskModal from '../components/dashboard/AddTaskModal';
+import TaskDetailModal from '../components/dashboard/TaskDetailModal';
 
 // ==============================|| DASHBOARD — role-aware ||============================== //
 
@@ -21,29 +25,231 @@ const initialCreateForm = {
     roleId: '3',
 };
 
+function TeamTable({ team, emptyHint }) {
+    return (
+        <div
+            style={{
+                borderRadius: 14,
+                border: '1px solid var(--border)',
+                background: 'var(--bg-card)',
+                overflow: 'hidden',
+            }}
+        >
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+                <thead>
+                    <tr
+                        style={{
+                            textAlign: 'left',
+                            borderBottom: '1px solid var(--border)',
+                            color: 'var(--text-muted)',
+                            fontSize: 12,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.06em',
+                        }}
+                    >
+                        <th style={{ padding: '14px 20px' }}>Name</th>
+                        <th style={{ padding: '14px 20px' }}>Email</th>
+                        <th style={{ padding: '14px 20px' }}>Role</th>
+                        <th style={{ padding: '14px 20px' }}>Employee code</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {team.length === 0 ? (
+                        <tr>
+                            <td
+                                colSpan={4}
+                                style={{
+                                    padding: 40,
+                                    textAlign: 'center',
+                                    color: 'var(--text-muted)',
+                                }}
+                            >
+                                {emptyHint}
+                            </td>
+                        </tr>
+                    ) : (
+                        team.map((m) => (
+                            <tr key={m.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                <td style={{ padding: '14px 20px', fontWeight: 600 }}>
+                                    {m.firstName} {m.lastName}
+                                </td>
+                                <td style={{ padding: '14px 20px', color: 'var(--text-secondary)' }}>
+                                    {m.email}
+                                </td>
+                                <td style={{ padding: '14px 20px' }}>{getRoleLabel(m.roleId)}</td>
+                                <td
+                                    style={{
+                                        padding: '14px 20px',
+                                        fontFamily: 'monospace',
+                                        fontSize: 13,
+                                    }}
+                                >
+                                    {m.employeeCode}
+                                </td>
+                            </tr>
+                        ))
+                    )}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+function PlaceholderSection({ title, body }) {
+    return (
+        <div
+            style={{
+                borderRadius: 14,
+                border: '1px dashed var(--border)',
+                background: 'rgba(255,255,255,0.02)',
+                padding: 48,
+                textAlign: 'center',
+                color: 'var(--text-muted)',
+            }}
+        >
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                {title}
+            </h2>
+            <p style={{ fontSize: 14, maxWidth: 420, margin: '0 auto', lineHeight: 1.5 }}>{body}</p>
+        </div>
+    );
+}
+
 export default function Dashboard() {
     const { user, logout } = useAuth();
     const { showSnackbar } = useSnackbar();
 
     const [tasks, setTasks] = useState([]);
+    const [projectsList, setProjectsList] = useState([]);
     const [team, setTeam] = useState([]);
     const [company, setCompany] = useState(null);
     const [roleOptions, setRoleOptions] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('all');
-    const [adminTab, setAdminTab] = useState('team');
-    const [managerTab, setManagerTab] = useState('tasks');
+    const [navSection, setNavSection] = useState('board');
     const [roster, setRoster] = useState(null);
     const [rosterLoading, setRosterLoading] = useState(false);
     const [createForm, setCreateForm] = useState(initialCreateForm);
     const [createError, setCreateError] = useState('');
     const [creating, setCreating] = useState(false);
+    const [addTaskOpen, setAddTaskOpen] = useState(false);
+    const [selectedTaskId, setSelectedTaskId] = useState(null);
 
     const roleIdNum = user?.roleId != null ? Number(user.roleId) : null;
     const isAdmin = roleIdNum === roleType.admin;
     const isManager = roleIdNum === roleType.manager;
+    const isTL = roleIdNum === roleType.tl;
     const isManagerOrTL =
         roleIdNum === roleType.manager || roleIdNum === roleType.tl;
+
+    const assigneeOptions = useMemo(() => {
+        if (!user?.id) return [];
+        const opts = [];
+        const seen = new Set();
+        const push = (id, label) => {
+            const n = Number(id);
+            if (!n || seen.has(n)) return;
+            seen.add(n);
+            opts.push({ id: n, label });
+        };
+        push(user.id, 'Me');
+        if (isManagerOrTL && team?.length) {
+            for (const m of team) {
+                push(
+                    m.id,
+                    `${m.firstName || ''} ${m.lastName || ''}`.trim() || m.email || `User ${m.id}`
+                );
+            }
+        }
+        return opts;
+    }, [user, team, isManagerOrTL]);
+
+    const refreshTasks = useCallback(async () => {
+        const tRes = await listTasks();
+        const tBody = tRes?.data ?? tRes;
+        if (tBody?.statusCode === StatusCode.success) {
+            setTasks((tBody.data || []).map(normalizeTask));
+        }
+    }, []);
+
+    const selectedTask = useMemo(
+        () => (selectedTaskId != null ? tasks.find((t) => t.id === selectedTaskId) ?? null : null),
+        [tasks, selectedTaskId]
+    );
+
+    useEffect(() => {
+        if (selectedTaskId == null) return;
+        if (!tasks.some((t) => t.id === selectedTaskId)) setSelectedTaskId(null);
+    }, [tasks, selectedTaskId]);
+
+    const forwardOptions = useMemo(
+        () => assigneeOptions.filter((o) => o.id !== Number(user?.id)),
+        [assigneeOptions, user?.id]
+    );
+
+    const handleTaskUpdated = useCallback((id, updates) => {
+        setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, ...updates } : t)));
+    }, []);
+
+    const sidebarItems = useMemo(() => {
+        if (isAdmin) {
+            return [
+                { key: 'people', label: 'People' },
+                { key: 'invite', label: 'Add user' },
+                { key: 'organization', label: 'Organization' },
+                { key: 'projects', label: 'Projects' },
+                { key: 'board', label: 'My board' },
+            ];
+        }
+        if (isManager) {
+            return [
+                { key: 'board', label: 'My board' },
+                { key: 'team', label: 'Team view' },
+                { key: 'organization', label: 'Organization' },
+                { key: 'projects', label: 'Projects' },
+                { key: 'notifications', label: 'Notifications' },
+                { key: 'reports', label: 'Reports' },
+                { key: 'settings', label: 'Settings' },
+            ];
+        }
+        if (isTL) {
+            return [
+                { key: 'board', label: 'My board' },
+                { key: 'team', label: 'Team view' },
+                { key: 'notifications', label: 'Notifications' },
+                { key: 'reports', label: 'Reports' },
+                { key: 'settings', label: 'Settings' },
+            ];
+        }
+        return [
+            { key: 'board', label: 'My board' },
+            { key: 'notifications', label: 'Notifications' },
+            { key: 'reports', label: 'Reports' },
+            { key: 'settings', label: 'Settings' },
+        ];
+    }, [isAdmin, isManager, isTL]);
+
+    const lastNavUserId = useRef(null);
+    useEffect(() => {
+        if (!user?.id) return;
+        if (lastNavUserId.current === user.id) return;
+        lastNavUserId.current = user.id;
+        setNavSection(isAdmin ? 'people' : 'board');
+    }, [user?.id, isAdmin]);
+
+    useEffect(() => {
+        if (!user || isAdmin || navSection !== 'board') return;
+        let cancelled = false;
+        (async () => {
+            const pRes = await listProjects().catch(() => null);
+            const pBody = pRes?.data ?? pRes;
+            if (!cancelled && pBody?.statusCode === StatusCode.success) {
+                setProjectsList(pBody.data || []);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [user, isAdmin, navSection]);
 
     const refreshRoster = async () => {
         const rRes = await getRoster();
@@ -52,9 +258,6 @@ export default function Dashboard() {
             setRoster(rBody.data);
         }
     };
-
-    const showTaskBoard =
-        !isAdmin && (!isManager || (isManager && managerTab === 'tasks'));
 
     useEffect(() => {
         if (!user) return;
@@ -104,6 +307,21 @@ export default function Dashboard() {
                         if (!cancelled) setRosterLoading(false);
                     }
                 }
+
+                if (rid !== roleType.admin) {
+                    const [tasksRes, projRes] = await Promise.all([
+                        listTasks().catch(() => null),
+                        listProjects().catch(() => null),
+                    ]);
+                    const tasksBody = tasksRes?.data ?? tasksRes;
+                    if (!cancelled && tasksBody?.statusCode === StatusCode.success) {
+                        setTasks((tasksBody.data || []).map(normalizeTask));
+                    }
+                    const projBody = projRes?.data ?? projRes;
+                    if (!cancelled && projBody?.statusCode === StatusCode.success) {
+                        setProjectsList(projBody.data || []);
+                    }
+                }
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -148,7 +366,7 @@ export default function Dashboard() {
                 if (tBody?.statusCode === StatusCode.success) {
                     setTeam(tBody.data || []);
                 }
-                setAdminTab('team');
+                setNavSection('people');
             } else {
                 setCreateError(body?.message || 'Could not create user');
             }
@@ -157,37 +375,14 @@ export default function Dashboard() {
         }
     };
 
-    const handleStatusChange = async (taskId, newStatus) => {
-        // const res = await updateTaskApi(taskId, { status: newStatus });
-        // if (res?.statusCode === 200) {
-        //     setTasks((prev) =>
-        //         prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
-        //     );
-        //     showSnackbar('Task updated', 'success');
-        // } else {
-        //     showSnackbar(res?.message || 'Update failed', 'error');
-        // }
-    };
-
-    const filtered =
-        activeTab === 'all'
-            ? tasks
-            : tasks.filter((t) => t.status === activeTab);
-
-    const statusColor = {
-        [taskStatus.todo]: '#9b9bc8',
-        [taskStatus.inProgress]: '#00d4ff',
-        [taskStatus.done]: '#00e5a0',
-    };
-
-    const priorityColor = { low: '#00e5a0', medium: '#f59e0b', high: '#ff6b6b' };
-
     const roleBadge = getRoleLabel(user?.roleId);
 
     return (
         <div
             style={{
                 minHeight: '100vh',
+                display: 'flex',
+                flexDirection: 'column',
                 background: 'var(--bg-primary)',
                 color: 'var(--text-primary)',
                 fontFamily: 'Inter, sans-serif',
@@ -314,63 +509,81 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* ── Content ── */}
-            <div style={{ padding: '32px', maxWidth: 1100, margin: '0 auto' }}>
-                <div style={{ marginBottom: 28 }}>
-                    <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 4 }}>
-                        Welcome back, {user?.firstName}{' '}
-                        <span role="img" aria-label="wave">
-                            👋
-                        </span>
-                    </h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-                        {isAdmin
-                            ? `Administrator · ${team.length} people in your organization`
-                            : isManagerOrTL
-                              ? `${getRoleLabel(user?.roleId)} view · ${tasks.length} total tasks · ${team.length} team members`
-                              : `${getRoleLabel(user?.roleId)} · ${tasks.length} tasks assigned to you`}
-                    </p>
-                </div>
-
-                {/* ── Admin: team & create user (no task board) ── */}
-                {isAdmin && (
-                    <>
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-                            {[
-                                { key: 'team', label: 'Team' },
-                                { key: 'create', label: 'Add user' },
-                                { key: 'hierarchy', label: 'Organization' },
-                                { key: 'projects', label: 'Projects' },
-                            ].map((tab) => (
-                                <button
-                                    key={tab.key}
-                                    type="button"
-                                    onClick={() => setAdminTab(tab.key)}
-                                    style={{
-                                        padding: '8px 18px',
-                                        borderRadius: 20,
-                                        fontSize: 13,
-                                        cursor: 'pointer',
-                                        border:
-                                            adminTab === tab.key
-                                                ? '1px solid #6c63ff'
-                                                : '1px solid var(--border)',
-                                        background:
-                                            adminTab === tab.key
-                                                ? 'rgba(108,99,255,0.15)'
-                                                : 'transparent',
-                                        color:
-                                            adminTab === tab.key
-                                                ? '#a09fff'
-                                                : 'var(--text-secondary)',
-                                        transition: 'var(--transition)',
-                                    }}
-                                >
-                                    {tab.label}
-                                </button>
-                            ))}
+            {/* ── Sidebar + workspace ── */}
+            <div
+                style={{
+                    display: 'flex',
+                    flex: 1,
+                    minHeight: 0,
+                    alignItems: 'stretch',
+                }}
+            >
+                <aside className="app-dash-sidebar">
+                    <nav className="preview-sidebar" aria-label="Workspace">
+                        {sidebarItems.map((item) => (
+                            <button
+                                key={item.key}
+                                type="button"
+                                className={`preview-sidebar-item${navSection === item.key ? ' active' : ''}`}
+                                onClick={() => setNavSection(item.key)}
+                            >
+                                <span className="preview-sidebar-icon" aria-hidden />
+                                {item.label}
+                            </button>
+                        ))}
+                    </nav>
+                </aside>
+                <div
+                    className="app-dash-workarea"
+                    style={{ flex: 1, minWidth: 0, padding: '24px 28px 40px', overflow: 'auto' }}
+                >
+                    <div className="preview-frame app-dash-frame" style={{ maxWidth: 1200, margin: '0 auto' }}>
+                        <div className="preview-topbar">
+                            <span className="dot-red" />
+                            <span className="dot-yellow" />
+                            <span className="dot-green" />
+                            <span className="preview-topbar-title">
+                                FlowDesk — {company?.name || 'Workspace'}
+                            </span>
                         </div>
+                        <div style={{ padding: 24 }}>
+                            <div style={{ marginBottom: 28 }}>
+                                <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
+                                    Hi {user?.firstName}{' '}!
+                                    
+                                </h1>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
+                                    {isAdmin
+                                        ? `Administrator · ${team.length} people in your organization`
+                                        : isManagerOrTL
+                                          ? `${getRoleLabel(user?.roleId)} view · ${tasks.length} total tasks · ${team.length} team members`
+                                          : `${getRoleLabel(user?.roleId)} · ${tasks.length} tasks assigned to you`}
+                                </p>
+                            </div>
 
+                            {isAdmin && navSection === 'people' && (
+                                <>
+                                    {loading ? (
+                                        <div
+                                            style={{
+                                                textAlign: 'center',
+                                                color: 'var(--text-muted)',
+                                                padding: 48,
+                                            }}
+                                        >
+                                            Loading…
+                                        </div>
+                                    ) : (
+                                        <TeamTable
+                                            team={team}
+                                            emptyHint='No team members yet. Use "Add user" in the sidebar to invite people.'
+                                        />
+                                    )}
+                                </>
+                            )}
+
+                {isAdmin && navSection === 'invite' && (
+                    <>
                         {loading ? (
                             <div
                                 style={{
@@ -380,87 +593,6 @@ export default function Dashboard() {
                                 }}
                             >
                                 Loading…
-                            </div>
-                        ) : adminTab === 'hierarchy' ? (
-                            <OrganizationPanel
-                                roster={roster}
-                                loading={rosterLoading}
-                                onRefresh={refreshRoster}
-                                showSnackbar={showSnackbar}
-                                currentUser={user}
-                            />
-                        ) : adminTab === 'projects' ? (
-                            <ProjectsPanel roster={roster} showSnackbar={showSnackbar} />
-                        ) : adminTab === 'team' ? (
-                            <div
-                                style={{
-                                    borderRadius: 14,
-                                    border: '1px solid var(--border)',
-                                    background: 'var(--bg-card)',
-                                    overflow: 'hidden',
-                                }}
-                            >
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-                                    <thead>
-                                        <tr
-                                            style={{
-                                                textAlign: 'left',
-                                                borderBottom: '1px solid var(--border)',
-                                                color: 'var(--text-muted)',
-                                                fontSize: 12,
-                                                textTransform: 'uppercase',
-                                                letterSpacing: '0.06em',
-                                            }}
-                                        >
-                                            <th style={{ padding: '14px 20px' }}>Name</th>
-                                            <th style={{ padding: '14px 20px' }}>Email</th>
-                                            <th style={{ padding: '14px 20px' }}>Role</th>
-                                            <th style={{ padding: '14px 20px' }}>Employee code</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {team.length === 0 ? (
-                                            <tr>
-                                                <td
-                                                    colSpan={4}
-                                                    style={{
-                                                        padding: 40,
-                                                        textAlign: 'center',
-                                                        color: 'var(--text-muted)',
-                                                    }}
-                                                >
-                                                    No team members yet. Use &quot;Add user&quot; to invite people.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            team.map((m) => (
-                                                <tr
-                                                    key={m.id}
-                                                    style={{ borderBottom: '1px solid var(--border)' }}
-                                                >
-                                                    <td style={{ padding: '14px 20px', fontWeight: 600 }}>
-                                                        {m.firstName} {m.lastName}
-                                                    </td>
-                                                    <td style={{ padding: '14px 20px', color: 'var(--text-secondary)' }}>
-                                                        {m.email}
-                                                    </td>
-                                                    <td style={{ padding: '14px 20px' }}>
-                                                        {getRoleLabel(m.roleId)}
-                                                    </td>
-                                                    <td
-                                                        style={{
-                                                            padding: '14px 20px',
-                                                            fontFamily: 'monospace',
-                                                            fontSize: 13,
-                                                        }}
-                                                    >
-                                                        {m.employeeCode}
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
                             </div>
                         ) : (
                             <div className="admin-create-user-wrap">
@@ -548,7 +680,7 @@ export default function Dashboard() {
                                             Role
                                             <select
                                                 required
-                                                className="admin-form-input"
+                                                className="admin-form-input form-select dashboard-select"
                                                 value={createForm.roleId}
                                                 onChange={(e) =>
                                                     setCreateForm((f) => ({
@@ -614,45 +746,7 @@ export default function Dashboard() {
                     </>
                 )}
 
-                {/* ── Manager: tabs for tasks / org / projects ── */}
-                {isManager && (
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
-                        {[
-                            { key: 'tasks', label: 'Tasks' },
-                            { key: 'org', label: 'Organization' },
-                            { key: 'projects', label: 'Projects' },
-                        ].map((tab) => (
-                            <button
-                                key={tab.key}
-                                type="button"
-                                onClick={() => setManagerTab(tab.key)}
-                                style={{
-                                    padding: '8px 18px',
-                                    borderRadius: 20,
-                                    fontSize: 13,
-                                    cursor: 'pointer',
-                                    border:
-                                        managerTab === tab.key
-                                            ? '1px solid #6c63ff'
-                                            : '1px solid var(--border)',
-                                    background:
-                                        managerTab === tab.key
-                                            ? 'rgba(108,99,255,0.15)'
-                                            : 'transparent',
-                                    color:
-                                        managerTab === tab.key
-                                            ? '#a09fff'
-                                            : 'var(--text-secondary)',
-                                    transition: 'var(--transition)',
-                                }}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
-                )}
-
-                {isManager && managerTab === 'org' && (
+                {isAdmin && navSection === 'organization' && (
                     <OrganizationPanel
                         roster={roster}
                         loading={rosterLoading}
@@ -662,226 +756,96 @@ export default function Dashboard() {
                     />
                 )}
 
-                {isManager && managerTab === 'projects' && (
+                {isAdmin && navSection === 'projects' && (
                     <ProjectsPanel roster={roster} showSnackbar={showSnackbar} />
                 )}
 
-                {/* ── Non-admin: task board (developers, managers on Tasks tab, TLs) ── */}
-                {!isAdmin && showTaskBoard && (
-                    <>
-                        <div
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(3, 1fr)',
-                                gap: 16,
-                                marginBottom: 32,
-                            }}
-                        >
-                            {[
-                                {
-                                    label: 'To Do',
-                                    value: tasks.filter((t) => t.status === taskStatus.todo).length,
-                                    color: '#9b9bc8',
-                                },
-                                {
-                                    label: 'In Progress',
-                                    value: tasks.filter((t) => t.status === taskStatus.inProgress).length,
-                                    color: '#00d4ff',
-                                },
-                                {
-                                    label: 'Done',
-                                    value: tasks.filter((t) => t.status === taskStatus.done).length,
-                                    color: '#00e5a0',
-                                },
-                            ].map((s) => (
-                                <div
-                                    key={s.label}
-                                    style={{
-                                        padding: '20px 24px',
-                                        borderRadius: 14,
-                                        background: 'var(--bg-card)',
-                                        border: '1px solid var(--border)',
-                                    }}
-                                >
-                                    <div style={{ fontSize: 28, fontWeight: 700, color: s.color }}>
-                                        {s.value}
-                                    </div>
-                                    <div
-                                        style={{
-                                            fontSize: 13,
-                                            color: 'var(--text-secondary)',
-                                            marginTop: 4,
-                                        }}
-                                    >
-                                        {s.label}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-                            {[
-                                { key: 'all', label: 'All Tasks' },
-                                { key: taskStatus.todo, label: 'To Do' },
-                                { key: taskStatus.inProgress, label: 'In Progress' },
-                                { key: taskStatus.done, label: 'Done' },
-                            ].map((tab) => (
-                                <button
-                                    key={tab.key}
-                                    type="button"
-                                    onClick={() => setActiveTab(tab.key)}
-                                    style={{
-                                        padding: '7px 16px',
-                                        borderRadius: 20,
-                                        fontSize: 13,
-                                        cursor: 'pointer',
-                                        border:
-                                            activeTab === tab.key
-                                                ? '1px solid #6c63ff'
-                                                : '1px solid var(--border)',
-                                        background:
-                                            activeTab === tab.key
-                                                ? 'rgba(108,99,255,0.15)'
-                                                : 'transparent',
-                                        color:
-                                            activeTab === tab.key
-                                                ? '#a09fff'
-                                                : 'var(--text-secondary)',
-                                        transition: 'var(--transition)',
-                                    }}
-                                >
-                                    {tab.label}
-                                </button>
-                            ))}
-                        </div>
-
-                        {loading ? (
-                            <div
-                                style={{
-                                    textAlign: 'center',
-                                    color: 'var(--text-muted)',
-                                    padding: 60,
-                                }}
-                            >
-                                Loading tasks…
-                            </div>
-                        ) : filtered.length === 0 ? (
-                            <div
-                                style={{
-                                    textAlign: 'center',
-                                    padding: 60,
-                                    borderRadius: 14,
-                                    border: '1px dashed var(--border)',
-                                    color: 'var(--text-muted)',
-                                }}
-                            >
-                                No tasks found
-                            </div>
-                        ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                {filtered.map((task) => (
-                                    <div
-                                        key={task.id}
-                                        style={{
-                                            padding: '16px 20px',
-                                            borderRadius: 12,
-                                            background: 'var(--bg-card)',
-                                            border: '1px solid var(--border)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            gap: 12,
-                                            transition: 'var(--transition)',
-                                        }}
-                                        onMouseEnter={(e) =>
-                                            (e.currentTarget.style.borderColor = 'rgba(108,99,255,0.4)')
-                                        }
-                                        onMouseLeave={(e) =>
-                                            (e.currentTarget.style.borderColor = 'var(--border)')
-                                        }
-                                    >
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
-                                                {task.title}
-                                            </div>
-                                            {task.description && (
-                                                <div
-                                                    style={{
-                                                        fontSize: 12,
-                                                        color: 'var(--text-muted)',
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis',
-                                                        whiteSpace: 'nowrap',
-                                                    }}
-                                                >
-                                                    {task.description}
-                                                </div>
-                                            )}
-                                            {isManagerOrTL && task.assigneeName && (
-                                                <div
-                                                    style={{
-                                                        fontSize: 11,
-                                                        color: 'var(--text-muted)',
-                                                        marginTop: 4,
-                                                    }}
-                                                >
-                                                    Assigned to:{' '}
-                                                    <span style={{ color: 'var(--text-secondary)' }}>
-                                                        {task.assigneeName}
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: 10,
-                                                flexShrink: 0,
-                                            }}
-                                        >
-                                            <span
-                                                style={{
-                                                    padding: '2px 8px',
-                                                    borderRadius: 20,
-                                                    fontSize: 11,
-                                                    fontWeight: 600,
-                                                    background: `${priorityColor[task.priority] || '#9b9bc8'}20`,
-                                                    color: priorityColor[task.priority] || '#9b9bc8',
-                                                    border: `1px solid ${priorityColor[task.priority] || '#9b9bc8'}40`,
-                                                }}
-                                            >
-                                                {task.priority || 'medium'}
-                                            </span>
-
-                                            <select
-                                                value={task.status}
-                                                onChange={(e) =>
-                                                    handleStatusChange(task.id, e.target.value)
-                                                }
-                                                style={{
-                                                    padding: '4px 10px',
-                                                    borderRadius: 8,
-                                                    fontSize: 12,
-                                                    background: 'var(--bg-secondary)',
-                                                    border: `1px solid ${statusColor[task.status] || 'var(--border)'}`,
-                                                    color: statusColor[task.status] || 'var(--text-primary)',
-                                                    cursor: 'pointer',
-                                                    outline: 'none',
-                                                }}
-                                            >
-                                                <option value={taskStatus.todo}>To Do</option>
-                                                <option value={taskStatus.inProgress}>In Progress</option>
-                                                <option value={taskStatus.done}>Done</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </>
+                {isAdmin && navSection === 'board' && (
+                    <PlaceholderSection
+                        title="My board"
+                        body="Task boards are for managers, tech leads, and developers. Use the sidebar to manage people, hierarchy, and projects."
+                    />
                 )}
+
+                {isManager && navSection === 'organization' && (
+                    <OrganizationPanel
+                        roster={roster}
+                        loading={rosterLoading}
+                        onRefresh={refreshRoster}
+                        showSnackbar={showSnackbar}
+                        currentUser={user}
+                    />
+                )}
+
+                {isManager && navSection === 'projects' && (
+                    <ProjectsPanel roster={roster} showSnackbar={showSnackbar} />
+                )}
+
+                {(isManager || isTL) && navSection === 'team' && (
+                    <TeamTable team={team} emptyHint="No team members to show." />
+                )}
+
+                {!isAdmin && navSection === 'notifications' && (
+                    <PlaceholderSection
+                        title="Notifications"
+                        body="You do not have any notifications yet. Activity from tasks and team updates will appear here."
+                    />
+                )}
+
+                {!isAdmin && navSection === 'reports' && (
+                    <PlaceholderSection
+                        title="Reports"
+                        body="Reporting and analytics will be available in a future update."
+                    />
+                )}
+
+                {!isAdmin && navSection === 'settings' && (
+                    <PlaceholderSection
+                        title="Settings"
+                        body="Account and workspace preferences will be available in a future update."
+                    />
+                )}
+
+                {!isAdmin && navSection === 'board' && (
+                    <TaskBoardKanban
+                        tasks={tasks}
+                        loading={loading}
+                        projects={projectsList}
+                        onAddTask={() => setAddTaskOpen(true)}
+                        onSelectTask={(t) => setSelectedTaskId(t.id)}
+                    />
+                )}
+
+                {!isAdmin && (
+                    <AddTaskModal
+                        open={addTaskOpen}
+                        onClose={() => setAddTaskOpen(false)}
+                        projects={projectsList}
+                        assigneeOptions={assigneeOptions}
+                        defaultAssigneeId={user?.id}
+                        showSnackbar={showSnackbar}
+                        onCreated={(raw) => {
+                            if (raw) setTasks((prev) => [...prev, normalizeTask(raw)]);
+                            else refreshTasks();
+                        }}
+                    />
+                )}
+
+                {!isAdmin && selectedTask && (
+                    <TaskDetailModal
+                        task={selectedTask}
+                        onClose={() => setSelectedTaskId(null)}
+                        showSnackbar={showSnackbar}
+                        onTaskUpdated={handleTaskUpdated}
+                        refreshTasks={refreshTasks}
+                        currentUserId={user?.id}
+                        forwardOptions={forwardOptions}
+                    />
+                )}
+
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );

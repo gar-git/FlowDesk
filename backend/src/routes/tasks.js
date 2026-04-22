@@ -1,14 +1,104 @@
 import express from 'express';
-import { eq, inArray, and } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/mysql-core';
 import { db } from '../db.js';
 import { tasks, users, projects } from '../db/schema.js';
 import { notificationQueue } from '../queues/notificationQueue.js';
-import { PRIORITY, TASK_STATUS } from '../helpers/constants.js';
+import { PRIORITY, TASK_STATUS, ROLES } from '../helpers/constants.js';
+import { getManageableUserIds } from '../helpers/orgScope.js';
 import dotenv from 'dotenv';
 import { checkToken } from '../middlewares/checkToken.js';
 
 dotenv.config();
 const router = express.Router();
+
+/** Ids whose tasks a manager or TL may update (PATCH), including direct reports. */
+async function visibleAssigneeIdsForLeadership(roleId, userId) {
+    const members = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(
+            roleId === ROLES.MANAGER ? eq(users.managerId, userId) : eq(users.tlId, userId),
+            eq(users.isDeleted, 0)
+        ));
+    return new Set(members.map((m) => m.id).concat([userId]));
+}
+
+async function assertCanAssignTo(req, assigneeId) {
+    const target = await db
+        .select()
+        .from(users)
+        .where(and(
+            eq(users.id, assigneeId),
+            eq(users.companyId, req.user.companyId),
+            eq(users.isDeleted, 0)
+        ))
+        .limit(1);
+
+    if (!target.length) {
+        const err = new Error('Assignee not found in your company');
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const { roleId, id } = req.user;
+
+    if (roleId === ROLES.ADMIN) return;
+
+    if (roleId === ROLES.DEVELOPER) {
+        if (assigneeId !== id) {
+            const err = new Error('You can only create tasks for yourself');
+            err.statusCode = 403;
+            throw err;
+        }
+        return;
+    }
+
+    if (roleId === ROLES.TL) {
+        if (assigneeId === id) return;
+        const u = target[0];
+        if (u.tlId === id) return;
+        const err = new Error('You can only assign tasks to yourself or your team');
+        err.statusCode = 403;
+        throw err;
+    }
+
+    if (roleId === ROLES.MANAGER) {
+        const manageable = await getManageableUserIds(db, id, req.user.companyId);
+        manageable.add(id);
+        if (!manageable.has(assigneeId)) {
+            const err = new Error('You cannot assign a task to this person');
+            err.statusCode = 403;
+            throw err;
+        }
+        return;
+    }
+
+    const err = new Error('Not allowed to create tasks');
+    err.statusCode = 403;
+    throw err;
+}
+
+async function assertCanModifyTask(req, task) {
+    if (!task) {
+        const err = new Error('Task not found');
+        err.statusCode = 404;
+        throw err;
+    }
+
+    const { roleId, id } = req.user;
+
+    if (task.assigneeId === id) return;
+
+    if (roleId === ROLES.MANAGER || roleId === ROLES.TL) {
+        const visible = await visibleAssigneeIdsForLeadership(roleId, id);
+        if (visible.has(task.assigneeId)) return;
+    }
+
+    const err = new Error('You cannot update this task');
+    err.statusCode = 403;
+    throw err;
+}
 
 
 // POST /api/tasks
@@ -18,7 +108,18 @@ router.post('/', checkToken, async (req, res) => {
         const creatorId = req.user.id;
         const { companyId } = req.user;
 
+        if (!title || String(title).trim() === '') {
+            return res.status(400).send({ statusCode: 400, message: 'title is required' });
+        }
+
+        const assigneeId = Number(assignee_id);
+        if (!assigneeId) {
+            return res.status(400).send({ statusCode: 400, message: 'assignee_id is required' });
+        }
+
         if (!projectId) return res.status(400).send({ statusCode: 400, message: 'projectId is required' });
+
+        await assertCanAssignTo(req, assigneeId);
 
         // Verify project belongs to user's company
         const projectRes = await db
@@ -33,17 +134,24 @@ router.post('/', checkToken, async (req, res) => {
 
         if (!projectRes.length) return res.status(404).send({ statusCode: 404, message: 'Project not found' });
 
+        const startRaw = req.body.start_date ?? req.body.startDate;
+        const startDate =
+            startRaw === undefined || startRaw === null || startRaw === ''
+                ? null
+                : String(startRaw).slice(0, 10);
+
         const result = await db
             .insert(tasks)
             .values({
-                title,
+                title: String(title).trim(),
                 description,
                 status: TASK_STATUS.TODO,
                 projectId,
                 creatorId,
-                assigneeId: assignee_id,
+                assigneeId: assigneeId,
                 priority: PRIORITY[priority.toUpperCase()] ?? PRIORITY.MEDIUM,
                 dueDate: due_date,
+                startDate,
             });
 
         const task = await db
@@ -53,13 +161,17 @@ router.post('/', checkToken, async (req, res) => {
             .limit(1);
 
         await notificationQueue.add('notify', {
-            toUserId: assignee_id,
+            toUserId: assigneeId,
             type: 'task_assigned',
             payload: { task: task[0] },
         });
 
         res.status(201).send({ statusCode: 201, data: task[0] });
     } catch (err) {
+        const code = err.statusCode;
+        if (code) {
+            return res.status(code).send({ statusCode: code, message: err.message });
+        }
         console.error('Create task error:', err.message);
         res.status(500).send({ statusCode: 500, message: err.message });
     }
@@ -83,50 +195,36 @@ router.get('/mine', checkToken, async (req, res) => {
 });
 
 
-// GET /api/tasks/all
+// GET /api/tasks/all — only tasks assigned to the current user (assignee = self).
+// Tasks a manager/TL created for others appear only on the assignee’s board; creator name is included for UI.
 router.get('/all', checkToken, async (req, res) => {
     try {
-        const { roleId, id } = req.user;
+        const { id } = req.user;
 
-        // Manager (roleId=1) or TL (roleId=2)
-        if (roleId === 1 || roleId === 2) {
-            const members = await db
-                .select({ id: users.id })
-                .from(users)
-                .where(and(
-                    roleId === 1 ? eq(users.managerId, id) : eq(users.tlId, id),
-                    eq(users.isDeleted, 0)
-                ));
+        const taskCreator = alias(users, 'task_creator');
 
-            const ids = members.map(m => m.id).concat([id]);
-
-            const result = await db
-                .select({
-                    id: tasks.id,
-                    title: tasks.title,
-                    description: tasks.description,
-                    status: tasks.status,
-                    priority: tasks.priority,
-                    projectId: tasks.projectId,
-                    dueDate: tasks.dueDate,
-                    creatorId: tasks.creatorId,
-                    assigneeId: tasks.assigneeId,
-                    assigneeName: users.firstName,
-                    createdAt: tasks.createdAt,
-                    updatedAt: tasks.updatedAt,
-                })
-                .from(tasks)
-                .innerJoin(users, eq(tasks.assigneeId, users.id))
-                .where(inArray(tasks.assigneeId, ids))
-                .orderBy(tasks.createdAt);
-
-            return res.status(200).send({ statusCode: 200, data: result });
-        }
-
-        // Developer — only their own tasks
         const result = await db
-            .select()
+            .select({
+                id: tasks.id,
+                title: tasks.title,
+                description: tasks.description,
+                status: tasks.status,
+                priority: tasks.priority,
+                projectId: tasks.projectId,
+                dueDate: tasks.dueDate,
+                startDate: tasks.startDate,
+                creatorId: tasks.creatorId,
+                assigneeId: tasks.assigneeId,
+                assigneeName: users.firstName,
+                assigneeLastName: users.lastName,
+                creatorFirstName: taskCreator.firstName,
+                creatorLastName: taskCreator.lastName,
+                createdAt: tasks.createdAt,
+                updatedAt: tasks.updatedAt,
+            })
             .from(tasks)
+            .innerJoin(users, eq(tasks.assigneeId, users.id))
+            .leftJoin(taskCreator, eq(tasks.creatorId, taskCreator.id))
             .where(eq(tasks.assigneeId, id))
             .orderBy(tasks.createdAt);
 
@@ -153,13 +251,18 @@ router.put('/:id/forward', checkToken, async (req, res) => {
         if (!taskRes.length) return res.status(404).send({ statusCode: 404, message: 'Task not found' });
         if (taskRes[0].assigneeId !== req.user.id) return res.status(403).send({ statusCode: 403, message: 'Not owner' });
 
+        const targetId = Number(target_user_id);
+        if (!targetId || targetId === req.user.id) {
+            return res.status(400).send({ statusCode: 400, message: 'Valid target_user_id is required' });
+        }
+
         await db
             .update(tasks)
-            .set({ pendingForwardTo: target_user_id, forwardFrom: req.user.id })
+            .set({ pendingForwardTo: targetId, forwardFrom: req.user.id })
             .where(eq(tasks.id, id));
 
         await notificationQueue.add('notify', {
-            toUserId: target_user_id,
+            toUserId: targetId,
             type: 'forward_request',
             payload: { taskId: id, fromUserId: req.user.id },
         });
@@ -211,7 +314,16 @@ router.post('/:id/forward/accept', checkToken, async (req, res) => {
 router.patch('/:id', checkToken, async (req, res) => {
     try {
         const id = parseInt(req.params.id);
-        const { status, title, description } = req.body;
+        const {
+            status,
+            title,
+            description,
+            priority,
+            start_date: startSnake,
+            startDate: startCamel,
+            due_date: dueSnake,
+            dueDate: dueCamel,
+        } = req.body;
 
         const taskRes = await db
             .select({ assigneeId: tasks.assigneeId })
@@ -221,15 +333,55 @@ router.patch('/:id', checkToken, async (req, res) => {
 
         if (!taskRes.length) return res.status(404).send({ statusCode: 404, message: 'Task not found' });
 
+        await assertCanModifyTask(req, taskRes[0]);
+
         const updates = { updatedAt: new Date() };
-        if (status !== undefined) updates.status = status;
-        if (title !== undefined) updates.title = title;
+
+        if (status !== undefined) {
+            const n = Number(status);
+            if (![TASK_STATUS.TODO, TASK_STATUS.ONGOING, TASK_STATUS.COMPLETED].includes(n)) {
+                return res.status(400).send({ statusCode: 400, message: 'Invalid status' });
+            }
+            updates.status = n;
+        }
+        if (title !== undefined) {
+            const t = String(title).trim();
+            if (!t) {
+                return res.status(400).send({ statusCode: 400, message: 'Title cannot be empty' });
+            }
+            updates.title = t;
+        }
         if (description !== undefined) updates.description = description;
+
+        if (priority !== undefined) {
+            const key = String(priority).toUpperCase();
+            const p = PRIORITY[key];
+            if (!p) {
+                return res.status(400).send({ statusCode: 400, message: 'Invalid priority' });
+            }
+            updates.priority = p;
+        }
+
+        const startRaw = startSnake ?? startCamel;
+        if (startRaw !== undefined) {
+            updates.startDate =
+                startRaw === null || startRaw === '' ? null : String(startRaw).slice(0, 10);
+        }
+
+        const dueRaw = dueSnake ?? dueCamel;
+        if (dueRaw !== undefined) {
+            updates.dueDate =
+                dueRaw === null || dueRaw === '' ? null : String(dueRaw).slice(0, 10);
+        }
 
         await db.update(tasks).set(updates).where(eq(tasks.id, id));
 
         res.status(200).send({ statusCode: 200, message: 'Task updated' });
     } catch (err) {
+        const code = err.statusCode;
+        if (code) {
+            return res.status(code).send({ statusCode: code, message: err.message });
+        }
         console.error('Update task error:', err.message);
         res.status(500).send({ statusCode: 500, message: err.message });
     }
