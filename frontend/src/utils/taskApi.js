@@ -1,4 +1,4 @@
-import { taskStatus, taskPriority } from './constants';
+import { taskStatus, taskPriority, taskType as taskTypeMap } from './constants';
 
 const STATUS_NUM_TO_STR = {
     1: taskStatus.todo,
@@ -10,6 +10,20 @@ const PRIORITY_NUM_TO_STR = {
     1: taskPriority.low,
     2: taskPriority.medium,
     3: taskPriority.high,
+};
+
+const TASK_TYPE_NUM_TO_KEY = {
+    1: 'bug',
+    2: 'feature',
+    3: 'improvement',
+    4: 'chore',
+};
+
+const TASK_TYPE_KEY_TO_NUM = {
+    bug: taskTypeMap.bug,
+    feature: taskTypeMap.feature,
+    improvement: taskTypeMap.improvement,
+    chore: taskTypeMap.chore,
 };
 
 function buildCreatorDisplayName(row) {
@@ -31,6 +45,17 @@ export function normalizeTask(row) {
     const fn = row.assigneeName || '';
     const ln = row.assigneeLastName || '';
     const assigneeDisplayName = `${fn} ${ln}`.trim() || fn || null;
+    const tt = row.taskType;
+    let taskTypeKey = null;
+    if (tt != null && tt !== '') {
+        if (typeof tt === 'number') {
+            taskTypeKey = TASK_TYPE_NUM_TO_KEY[tt] ?? null;
+        } else {
+            const k = String(tt).toLowerCase();
+            taskTypeKey = TASK_TYPE_KEY_TO_NUM[k] != null ? k : null;
+        }
+    }
+
     return {
         ...row,
         status:
@@ -41,6 +66,7 @@ export function normalizeTask(row) {
             typeof pr === 'number'
                 ? PRIORITY_NUM_TO_STR[pr] ?? taskPriority.medium
                 : pr ?? taskPriority.medium,
+        taskType: taskTypeKey,
         creatorName,
         assigneeDisplayName,
     };
@@ -61,4 +87,23 @@ export function formatDateInputValue(v) {
     if (v == null || v === '') return '';
     const s = typeof v === 'string' ? v : String(v);
     return s.slice(0, 10);
+}
+
+/** Human-readable date for display (e.g. "20 Apr 2026"), or "Not set" */
+export function formatDateDisplay(ymd) {
+    if (ymd == null || ymd === '') return 'Not set';
+    try {
+        const s = String(ymd).slice(0, 10);
+        const d = new Date(`${s}T12:00:00`);
+        if (Number.isNaN(d.getTime())) return 'Not set';
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch {
+        return 'Not set';
+    }
+}
+
+/** UI key (`bug` … `chore`) → API */
+export function taskTypeKeyToApi(key) {
+    if (key == null || key === '') return null;
+    return TASK_TYPE_KEY_TO_NUM[key] ?? null;
 }

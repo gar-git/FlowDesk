@@ -68,6 +68,10 @@ export const tasks = mysqlTable('tasks', {
     priority: smallint('priority').notNull().default(2),
     dueDate: date('due_date'),
     startDate: date('start_date'),
+    // comma-separated labels, max length enforced in routes
+    tags: varchar('tags', { length: 512 }),
+    // 1=bug, 2=feature, 3=improvement, 4=chore; null = unset
+    taskType: smallint('task_type'),
     forwardFrom: int('forward_from').references(() => users.id),
     pendingForwardTo: int('pending_forward_to').references(() => users.id),
     createdAt: timestamp('created_at').defaultNow(),

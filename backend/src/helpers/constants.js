@@ -16,4 +16,11 @@ export const ROLES = {
     DEVELOPER: 3,
     ADMIN: 4,
 };
- 
+
+/** Stored on tasks.task_type; null means not set */
+export const TASK_TYPE = {
+    BUG: 1,
+    FEATURE: 2,
+    IMPROVEMENT: 3,
+    CHORE: 4,
+};

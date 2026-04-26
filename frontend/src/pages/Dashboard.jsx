@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useAuth from '../hooks/useAuth';
-import { getRoleLabel, roleType, StatusCode } from '../utils/constants';
+import { getRoleLabel, getUserRoleDisplayName, roleType, StatusCode } from '../utils/constants';
 import { normalizeTask } from '../utils/taskApi';
 import { useSnackbar } from '../utils/SnackbarProvider';
 import { getCompanyMe } from '../api/companies';
@@ -185,10 +185,6 @@ export default function Dashboard() {
         () => assigneeOptions.filter((o) => o.id !== Number(user?.id)),
         [assigneeOptions, user?.id]
     );
-
-    const handleTaskUpdated = useCallback((id, updates) => {
-        setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, ...updates } : t)));
-    }, []);
 
     const sidebarItems = useMemo(() => {
         if (isAdmin) {
@@ -375,7 +371,7 @@ export default function Dashboard() {
         }
     };
 
-    const roleBadge = getRoleLabel(user?.roleId);
+    const roleBadge = getUserRoleDisplayName(user);
 
     return (
         <div
@@ -556,8 +552,8 @@ export default function Dashboard() {
                                     {isAdmin
                                         ? `Administrator · ${team.length} people in your organization`
                                         : isManagerOrTL
-                                          ? `${getRoleLabel(user?.roleId)} view · ${tasks.length} total tasks · ${team.length} team members`
-                                          : `${getRoleLabel(user?.roleId)} · ${tasks.length} tasks assigned to you`}
+                                          ? `${getUserRoleDisplayName(user)} view · ${tasks.length} total tasks · ${team.length} team members`
+                                          : `${getUserRoleDisplayName(user)} · ${tasks.length} tasks assigned to you`}
                                 </p>
                             </div>
 
@@ -836,10 +832,11 @@ export default function Dashboard() {
                         task={selectedTask}
                         onClose={() => setSelectedTaskId(null)}
                         showSnackbar={showSnackbar}
-                        onTaskUpdated={handleTaskUpdated}
                         refreshTasks={refreshTasks}
                         currentUserId={user?.id}
+                        currentUser={user}
                         forwardOptions={forwardOptions}
+                        assigneeOptions={assigneeOptions}
                     />
                 )}
 

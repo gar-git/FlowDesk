@@ -132,12 +132,14 @@ router.get('/profile', checkToken, async (req, res) => {
                 lastName: users.lastName,
                 email: users.email,
                 roleId: users.roleId,
+                roleName: roleMaster.roleName,
                 companyId: users.companyId,
                 employeeCode: users.employeeCode,
                 managerId: users.managerId,
                 tlId: users.tlId,
             })
             .from(users)
+            .innerJoin(roleMaster, eq(users.roleId, roleMaster.id))
             .where(eq(users.id, req.user.id))
             .limit(1);
 

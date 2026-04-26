@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS role_master (
 INSERT IGNORE INTO role_master (id, role_name) VALUES
   (1, 'Manager'),
   (2, 'Team Lead'),
-  (3, 'Developer'),
+  (3, 'Developer/QA'),
   (4, 'Admin');
 
 
@@ -98,6 +98,9 @@ CREATE TABLE IF NOT EXISTS tasks (
 
   due_date DATE,
   start_date DATE,
+  tags VARCHAR(512) NULL,
+  -- 1=bug, 2=feature, 3=improvement, 4=chore; NULL = unset
+  task_type SMALLINT NULL,
   forward_from INT,
   pending_forward_to INT,
 

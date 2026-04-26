@@ -4,7 +4,7 @@ import { alias } from 'drizzle-orm/mysql-core';
 import { db } from '../db.js';
 import { tasks, users, projects } from '../db/schema.js';
 import { notificationQueue } from '../queues/notificationQueue.js';
-import { PRIORITY, TASK_STATUS, ROLES } from '../helpers/constants.js';
+import { PRIORITY, TASK_STATUS, ROLES, TASK_TYPE } from '../helpers/constants.js';
 import { getManageableUserIds } from '../helpers/orgScope.js';
 import dotenv from 'dotenv';
 import { checkToken } from '../middlewares/checkToken.js';
@@ -22,6 +22,48 @@ async function visibleAssigneeIdsForLeadership(roleId, userId) {
             eq(users.isDeleted, 0)
         ));
     return new Set(members.map((m) => m.id).concat([userId]));
+}
+
+const TASK_TYPE_NUMS = new Set([TASK_TYPE.BUG, TASK_TYPE.FEATURE, TASK_TYPE.IMPROVEMENT, TASK_TYPE.CHORE]);
+const TASK_TYPE_BY_NAME = {
+    bug: TASK_TYPE.BUG,
+    feature: TASK_TYPE.FEATURE,
+    improvement: TASK_TYPE.IMPROVEMENT,
+    chore: TASK_TYPE.CHORE,
+};
+
+function normalizeTagsInput(raw) {
+    if (raw == null || raw === '') return null;
+    const s = String(raw).trim();
+    if (!s) return null;
+    const parts = s.split(/[,;]+/).map((p) => p.trim()).filter(Boolean);
+    if (!parts.length) return null;
+    const out = parts.join(', ');
+    return out.length > 512 ? out.slice(0, 512) : out;
+}
+
+function parseTaskTypeForCreateOrReplace(raw) {
+    if (raw === undefined || raw === null || raw === '') return null;
+    const n = Number(raw);
+    if (Number.isInteger(n) && TASK_TYPE_NUMS.has(n)) return n;
+    const m = TASK_TYPE_BY_NAME[String(raw).toLowerCase().trim()];
+    if (m) return m;
+    const err = new Error('Invalid task type');
+    err.statusCode = 400;
+    throw err;
+}
+
+/** @returns {number|null|undefined} */
+function parseTaskTypeForPatch(raw) {
+    if (raw === undefined) return undefined;
+    if (raw === null || raw === '') return null;
+    const n = Number(raw);
+    if (Number.isInteger(n) && TASK_TYPE_NUMS.has(n)) return n;
+    const m = TASK_TYPE_BY_NAME[String(raw).toLowerCase().trim()];
+    if (m) return m;
+    const err = new Error('Invalid task type');
+    err.statusCode = 400;
+    throw err;
 }
 
 async function assertCanAssignTo(req, assigneeId) {
@@ -100,11 +142,29 @@ async function assertCanModifyTask(req, task) {
     throw err;
 }
 
+/** Only the creator may change priority and assignee (e.g. TL sets these for a dev's task). */
+function userMayEditPriorityAndAssignee(req, task) {
+    if (task == null) return true;
+    const c = task.creatorId;
+    if (c == null) return true; // legacy rows without creator
+    return Number(c) === Number(req.user.id);
+}
+
 
 // POST /api/tasks
 router.post('/', checkToken, async (req, res) => {
     try {
-        const { title, description, assignee_id, priority = 'medium', due_date = null, projectId } = req.body;
+        const {
+            title,
+            description,
+            assignee_id,
+            priority = 'medium',
+            due_date = null,
+            projectId,
+            tags: tagsBody,
+            task_type: taskTypeSnake,
+            taskType: taskTypeCamel,
+        } = req.body;
         const creatorId = req.user.id;
         const { companyId } = req.user;
 
@@ -140,6 +200,14 @@ router.post('/', checkToken, async (req, res) => {
                 ? null
                 : String(startRaw).slice(0, 10);
 
+        let taskTypeVal;
+        try {
+            taskTypeVal = parseTaskTypeForCreateOrReplace(taskTypeSnake ?? taskTypeCamel);
+        } catch (e) {
+            return res.status(400).send({ statusCode: 400, message: e.message });
+        }
+        const tagsVal = normalizeTagsInput(tagsBody);
+
         const result = await db
             .insert(tasks)
             .values({
@@ -152,6 +220,8 @@ router.post('/', checkToken, async (req, res) => {
                 priority: PRIORITY[priority.toUpperCase()] ?? PRIORITY.MEDIUM,
                 dueDate: due_date,
                 startDate,
+                tags: tagsVal,
+                taskType: taskTypeVal,
             });
 
         const task = await db
@@ -211,8 +281,11 @@ router.get('/all', checkToken, async (req, res) => {
                 status: tasks.status,
                 priority: tasks.priority,
                 projectId: tasks.projectId,
+                projectName: projects.name,
                 dueDate: tasks.dueDate,
                 startDate: tasks.startDate,
+                tags: tasks.tags,
+                taskType: tasks.taskType,
                 creatorId: tasks.creatorId,
                 assigneeId: tasks.assigneeId,
                 assigneeName: users.firstName,
@@ -224,6 +297,7 @@ router.get('/all', checkToken, async (req, res) => {
             })
             .from(tasks)
             .innerJoin(users, eq(tasks.assigneeId, users.id))
+            .leftJoin(projects, eq(tasks.projectId, projects.id))
             .leftJoin(taskCreator, eq(tasks.creatorId, taskCreator.id))
             .where(eq(tasks.assigneeId, id))
             .orderBy(tasks.createdAt);
@@ -323,17 +397,24 @@ router.patch('/:id', checkToken, async (req, res) => {
             startDate: startCamel,
             due_date: dueSnake,
             dueDate: dueCamel,
+            tags: tagsBody,
+            task_type: taskTypeSnake,
+            taskType: taskTypeCamel,
+            assignee_id: assigneeSnake,
+            assigneeId: assigneeCamel,
         } = req.body;
 
         const taskRes = await db
-            .select({ assigneeId: tasks.assigneeId })
+            .select({ assigneeId: tasks.assigneeId, title: tasks.title, creatorId: tasks.creatorId })
             .from(tasks)
             .where(eq(tasks.id, id))
             .limit(1);
 
         if (!taskRes.length) return res.status(404).send({ statusCode: 404, message: 'Task not found' });
 
-        await assertCanModifyTask(req, taskRes[0]);
+        const before = taskRes[0];
+        await assertCanModifyTask(req, before);
+        const canSetPriorityAssignee = userMayEditPriorityAndAssignee(req, before);
 
         const updates = { updatedAt: new Date() };
 
@@ -353,7 +434,7 @@ router.patch('/:id', checkToken, async (req, res) => {
         }
         if (description !== undefined) updates.description = description;
 
-        if (priority !== undefined) {
+        if (priority !== undefined && canSetPriorityAssignee) {
             const key = String(priority).toUpperCase();
             const p = PRIORITY[key];
             if (!p) {
@@ -374,7 +455,46 @@ router.patch('/:id', checkToken, async (req, res) => {
                 dueRaw === null || dueRaw === '' ? null : String(dueRaw).slice(0, 10);
         }
 
+        if (tagsBody !== undefined) {
+            updates.tags = normalizeTagsInput(tagsBody);
+        }
+
+        const rawTaskType = taskTypeSnake !== undefined ? taskTypeSnake : taskTypeCamel;
+        if (rawTaskType !== undefined) {
+            try {
+                updates.taskType = parseTaskTypeForPatch(rawTaskType);
+            } catch (e) {
+                return res.status(400).send({ statusCode: 400, message: e.message });
+            }
+        }
+
+        const assigneeRaw = assigneeSnake !== undefined ? assigneeSnake : assigneeCamel;
+        if (assigneeRaw !== undefined && canSetPriorityAssignee) {
+            const newAssigneeId = Number(assigneeRaw);
+            if (!newAssigneeId) {
+                return res.status(400).send({ statusCode: 400, message: 'Invalid assignee_id' });
+            }
+            try {
+                await assertCanAssignTo(req, newAssigneeId);
+            } catch (e) {
+                const code = e.statusCode || 403;
+                return res.status(code).send({ statusCode: code, message: e.message });
+            }
+            updates.assigneeId = newAssigneeId;
+        }
+
         await db.update(tasks).set(updates).where(eq(tasks.id, id));
+
+        if (updates.assigneeId !== undefined && updates.assigneeId !== before.assigneeId) {
+            const taskRow = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+            if (taskRow[0]) {
+                await notificationQueue.add('notify', {
+                    toUserId: updates.assigneeId,
+                    type: 'task_assigned',
+                    payload: { task: taskRow[0] },
+                });
+            }
+        }
 
         res.status(200).send({ statusCode: 200, message: 'Task updated' });
     } catch (err) {
