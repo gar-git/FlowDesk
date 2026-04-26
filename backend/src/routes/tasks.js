@@ -230,11 +230,14 @@ router.post('/', checkToken, async (req, res) => {
             .where(eq(tasks.id, result[0].insertId))
             .limit(1);
 
-        await notificationQueue.add('notify', {
+        const nJob = await notificationQueue.add('notify', {
             toUserId: assigneeId,
             type: 'task_assigned',
             payload: { task: task[0] },
         });
+        console.log(
+            `[queue] enqueued job bullmqId=${nJob.id} type=task_assigned toUserId=${assigneeId}`
+        );
 
         res.status(201).send({ statusCode: 201, data: task[0] });
     } catch (err) {
@@ -488,11 +491,14 @@ router.patch('/:id', checkToken, async (req, res) => {
         if (updates.assigneeId !== undefined && updates.assigneeId !== before.assigneeId) {
             const taskRow = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
             if (taskRow[0]) {
-                await notificationQueue.add('notify', {
+                const nJob = await notificationQueue.add('notify', {
                     toUserId: updates.assigneeId,
                     type: 'task_assigned',
                     payload: { task: taskRow[0] },
                 });
+                console.log(
+                    `[queue] enqueued job bullmqId=${nJob.id} type=task_assigned toUserId=${updates.assigneeId} (reassign)`
+                );
             }
         }
 
