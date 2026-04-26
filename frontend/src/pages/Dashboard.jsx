@@ -12,6 +12,7 @@ import ProjectsPanel from '../components/dashboard/ProjectsPanel';
 import TaskBoardKanban from '../components/dashboard/TaskBoardKanban';
 import AddTaskModal from '../components/dashboard/AddTaskModal';
 import TaskDetailModal from '../components/dashboard/TaskDetailModal';
+import SettingsPanel from '../components/dashboard/SettingsPanel';
 
 // ==============================|| DASHBOARD — role-aware ||============================== //
 
@@ -101,7 +102,7 @@ function PlaceholderSection({ title, body }) {
             style={{
                 borderRadius: 14,
                 border: '1px dashed var(--border)',
-                background: 'rgba(255,255,255,0.02)',
+                background: 'var(--bg-card)',
                 padding: 48,
                 textAlign: 'center',
                 color: 'var(--text-muted)',
@@ -194,6 +195,7 @@ export default function Dashboard() {
                 { key: 'organization', label: 'Organization' },
                 { key: 'projects', label: 'Projects' },
                 { key: 'board', label: 'My board' },
+                { key: 'settings', label: 'Settings' },
             ];
         }
         if (isManager) {
@@ -394,7 +396,7 @@ export default function Dashboard() {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     padding: '14px 32px',
-                    background: 'rgba(7,8,15,0.9)',
+                    background: 'var(--surface-topbar)',
                     backdropFilter: 'blur(20px)',
                     borderBottom: '1px solid var(--border)',
                     flexWrap: 'wrap',
@@ -426,7 +428,7 @@ export default function Dashboard() {
                                 letterSpacing: '-0.3px',
                             }}
                         >
-                            Flow<span style={{ color: '#6c63ff' }}>Desk</span>
+                            Flow<span style={{ color: 'var(--purple)' }}>Desk</span>
                         </span>
                     </div>
                     {company && (
@@ -450,10 +452,10 @@ export default function Dashboard() {
                                     fontSize: 12,
                                     fontWeight: 700,
                                     letterSpacing: '0.06em',
-                                    color: '#a09fff',
+                                    color: 'var(--badge-accent-text)',
                                     padding: '3px 8px',
                                     borderRadius: 6,
-                                    background: 'rgba(108,99,255,0.15)',
+                                    background: 'var(--badge-accent-bg)',
                                 }}
                             >
                                 {company.companyCode}
@@ -470,8 +472,8 @@ export default function Dashboard() {
                                 marginLeft: 8,
                                 padding: '3px 10px',
                                 borderRadius: 20,
-                                background: 'rgba(108,99,255,0.15)',
-                                color: '#a09fff',
+                                background: 'var(--badge-accent-bg)',
+                                color: 'var(--badge-accent-text)',
                                 fontSize: 11,
                                 fontWeight: 600,
                             }}
@@ -492,8 +494,8 @@ export default function Dashboard() {
                             transition: 'var(--transition)',
                         }}
                         onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = '#ff6b6b';
-                            e.currentTarget.style.color = '#ff6b6b';
+                            e.currentTarget.style.borderColor = 'var(--pink)';
+                            e.currentTarget.style.color = 'var(--pink)';
                         }}
                         onMouseLeave={(e) => {
                             e.currentTarget.style.borderColor = 'var(--border)';
@@ -543,6 +545,7 @@ export default function Dashboard() {
                             </span>
                         </div>
                         <div style={{ padding: 24 }}>
+                            {navSection !== 'settings' && (
                             <div style={{ marginBottom: 28 }}>
                                 <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
                                     Hi {user?.firstName}{' '}!
@@ -556,6 +559,7 @@ export default function Dashboard() {
                                           : `${getUserRoleDisplayName(user)} · ${tasks.length} tasks assigned to you`}
                                 </p>
                             </div>
+                            )}
 
                             {isAdmin && navSection === 'people' && (
                                 <>
@@ -795,11 +799,8 @@ export default function Dashboard() {
                     />
                 )}
 
-                {!isAdmin && navSection === 'settings' && (
-                    <PlaceholderSection
-                        title="Settings"
-                        body="Account and workspace preferences will be available in a future update."
-                    />
+                {navSection === 'settings' && (
+                    <SettingsPanel showSnackbar={showSnackbar} />
                 )}
 
                 {!isAdmin && navSection === 'board' && (

@@ -11,6 +11,7 @@ export const API_Route = {
 
     // User
     getProfile: 'users/profile',
+    changePassword: 'users/me/password',
     getTeam: 'users/team',
     getRoleDropdown: 'users/roleDropdown',
     createUser: 'users/create',

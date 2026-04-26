@@ -5,6 +5,9 @@ import { SnackbarProvider } from './utils/SnackbarProvider.jsx';
 import { JWTProvider } from './context/JWTContext.jsx';
 import LenisProvider from './utils/LenisProvider.jsx';
 import './styles.css';
+import { initTheme } from './utils/theme';
+
+initTheme();
 
 // ==============================|| APP BOOTSTRAP ||============================== //
 //

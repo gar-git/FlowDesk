@@ -22,10 +22,10 @@ export default function OrganizationPanel({
         fontSize: 13,
         cursor: "pointer",
         border:
-          mode === key ? "1px solid #6c63ff" : "1px solid var(--border)",
+          mode === key ? "1px solid var(--purple)" : "1px solid var(--border)",
         background:
-          mode === key ? "rgba(108,99,255,0.15)" : "transparent",
-        color: mode === key ? "#a09fff" : "var(--text-secondary)",
+          mode === key ? "var(--badge-accent-bg)" : "transparent",
+        color: mode === key ? "var(--badge-accent-text)" : "var(--text-secondary)",
         transition: "var(--transition)",
         fontFamily: "inherit",
         fontWeight: 600,

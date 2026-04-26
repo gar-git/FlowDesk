@@ -33,20 +33,20 @@ export const SnackbarProvider = ({ children }) => {
                         fontWeight: 500,
                         cursor: 'pointer',
                         maxWidth: 360,
-                        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                        boxShadow: 'var(--shadow-card)',
                         background:
-                            snack.type === 'success' ? 'rgba(0,229,160,0.15)' :
-                            snack.type === 'error'   ? 'rgba(255,107,107,0.15)' :
-                                                       'rgba(108,99,255,0.15)',
+                            snack.type === 'success' ? 'var(--snack-bg-success)' :
+                            snack.type === 'error'   ? 'var(--snack-bg-error)' :
+                                                       'var(--snack-bg-info)',
                         border: `1px solid ${
-                            snack.type === 'success' ? '#00e5a0' :
-                            snack.type === 'error'   ? '#ff6b6b' :
-                                                       '#6c63ff'
+                            snack.type === 'success' ? 'var(--green)' :
+                            snack.type === 'error'   ? 'var(--pink)' :
+                                                       'var(--purple)'
                         }`,
                         color:
-                            snack.type === 'success' ? '#00e5a0' :
-                            snack.type === 'error'   ? '#ff6b6b' :
-                                                       '#a09fff',
+                            snack.type === 'success' ? 'var(--green)' :
+                            snack.type === 'error'   ? 'var(--pink)' :
+                                                       'var(--badge-accent-text)',
                     }}
                 >
                     {snack.message}

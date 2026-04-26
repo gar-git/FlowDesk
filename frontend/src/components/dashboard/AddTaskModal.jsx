@@ -16,7 +16,7 @@ const inputStyle = {
     padding: '10px 12px',
     borderRadius: 8,
     border: '1px solid var(--border)',
-    background: 'rgba(255,255,255,0.06)',
+    background: 'var(--input-surface)',
     color: 'var(--text-primary)',
     fontSize: 14,
     outline: 'none',

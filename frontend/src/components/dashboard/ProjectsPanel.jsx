@@ -14,7 +14,7 @@ const inputStyle = {
   padding: "10px 12px",
   borderRadius: 8,
   border: "1px solid var(--border)",
-  background: "rgba(255,255,255,0.06)",
+  background: "var(--input-surface)",
   color: "var(--text-primary)",
   fontSize: 14,
   outline: "none",
@@ -356,7 +356,7 @@ export default function ProjectsPanel({ roster, showSnackbar }) {
                     onClick={() => handleRemove(m.userId)}
                     style={{
                       fontSize: 12,
-                      color: "#ff6b6b",
+                      color: "var(--pink)",
                       background: "none",
                       border: "none",
                       cursor: "pointer",
@@ -395,8 +395,8 @@ export default function ProjectsPanel({ roster, showSnackbar }) {
                 padding: "10px 18px",
                 borderRadius: 8,
                 border: "1px solid var(--border)",
-                background: addUserId ? "rgba(108,99,255,0.2)" : "transparent",
-                color: addUserId ? "#a09fff" : "var(--text-muted)",
+                background: addUserId ? "var(--badge-accent-bg)" : "transparent",
+                color: addUserId ? "var(--badge-accent-text)" : "var(--text-muted)",
                 fontWeight: 600,
                 cursor: addUserId ? "pointer" : "not-allowed",
                 fontFamily: "inherit",

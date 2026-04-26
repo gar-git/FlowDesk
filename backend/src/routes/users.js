@@ -152,6 +152,43 @@ router.get('/profile', checkToken, async (req, res) => {
     }
 });
 
+// PATCH /api/users/me/password
+router.patch('/me/password', checkToken, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        if (currentPassword == null || newPassword == null) {
+            return res.status(400).send({
+                statusCode: 400,
+                message: 'currentPassword and newPassword are required',
+            });
+        }
+        const np = String(newPassword);
+        if (np.length < 8) {
+            return res.status(400).send({
+                statusCode: 400,
+                message: 'New password must be at least 8 characters',
+            });
+        }
+        const rows = await db
+            .select({ password: users.password })
+            .from(users)
+            .where(eq(users.id, req.user.id))
+            .limit(1);
+        if (!rows.length) {
+            return res.status(404).send({ statusCode: 404, message: 'User not found' });
+        }
+        const ok = await bcrypt.compare(String(currentPassword), rows[0].password);
+        if (!ok) {
+            return res.status(401).send({ statusCode: 401, message: 'Current password is incorrect' });
+        }
+        const encrypted = await bcrypt.hash(np, 10);
+        await db.update(users).set({ password: encrypted }).where(eq(users.id, req.user.id));
+        res.status(200).send({ statusCode: 200, message: 'Password updated successfully' });
+    } catch (err) {
+        console.error('Change password error:', err);
+        res.status(500).send({ statusCode: 500, message: 'Error occurred' });
+    }
+});
 
 // GET /api/users/team
 router.get('/team', checkToken, async (req, res) => {

@@ -34,7 +34,7 @@ function TreeNode({ node, depth }) {
               flexShrink: 0,
               border: "1px solid var(--border)",
               borderRadius: 6,
-              background: "rgba(255,255,255,0.06)",
+              background: "var(--input-surface)",
               color: "var(--text-secondary)",
               cursor: "pointer",
               fontSize: 12,

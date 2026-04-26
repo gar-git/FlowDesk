@@ -33,6 +33,14 @@ export async function getRoster() {
   }
 }
 
+export async function changePassword(payload) {
+  try {
+    return await axios.patch(API_Route.changePassword, payload);
+  } catch (error) {
+    return error;
+  }
+}
+
 export async function updateUserHierarchy(userId, payload) {
   try {
     return await axios.patch(API_Route.userHierarchy(userId), payload);
