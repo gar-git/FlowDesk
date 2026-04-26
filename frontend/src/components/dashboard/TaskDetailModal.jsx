@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import ConfirmDialog from '../common/ConfirmDialog';
 import { taskStatus, taskType, taskTypeLabel, StatusCode } from '../../utils/constants';
 import {
     statusToApi,
     formatDateInputValue,
     taskTypeKeyToApi,
 } from '../../utils/taskApi';
-import { updateTask, forwardTask } from '../../api/tasks';
+import { updateTask, forwardTask, deleteTask } from '../../api/tasks';
 
 const STATUS_OPTIONS = [
     { value: taskStatus.todo, label: 'To do' },
@@ -93,9 +94,15 @@ export default function TaskDetailModal({
     const [saving, setSaving] = useState(false);
     const [forwardTarget, setForwardTarget] = useState('');
     const [forwarding, setForwarding] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [error, setError] = useState('');
 
     const isAssignee = task && Number(task.assigneeId) === Number(currentUserId);
+    const canDelete =
+        task != null &&
+        task.creatorId != null &&
+        Number(task.creatorId) === Number(currentUserId);
     const canForward = isAssignee && forwardOptions?.length > 0;
     const canEditPriorityAndAssignee =
         task.creatorId == null || Number(task.creatorId) === Number(currentUserId);
@@ -257,12 +264,34 @@ export default function TaskDetailModal({
         }
     };
 
+    const confirmDelete = async () => {
+        if (!task?.id || !canDelete) return;
+        setDeleting(true);
+        setError('');
+        try {
+            const res = await deleteTask(task.id);
+            const body = res?.data ?? res;
+            if (body?.statusCode !== StatusCode.success) {
+                setDeleteConfirmOpen(false);
+                setError(body?.message || 'Could not delete task');
+                return;
+            }
+            setDeleteConfirmOpen(false);
+            showSnackbar?.('Task deleted', 'success');
+            await refreshTasks?.();
+            onClose();
+        } finally {
+            setDeleting(false);
+        }
+    };
+
     const typeLabel =
         taskTypeVal && taskTypeLabel[taskType[taskTypeVal]]
             ? taskTypeLabel[taskType[taskTypeVal]]
             : '';
 
     return createPortal(
+        <Fragment>
         <div className="modal-backdrop" aria-hidden="true">
             <div
                 className="modal-panel task-detail-modal"
@@ -448,6 +477,16 @@ export default function TaskDetailModal({
                         {error && <div className="error-msg task-detail-error">{error}</div>}
 
                         <div className="task-detail-modal-actions">
+                            {canDelete && (
+                                <button
+                                    type="button"
+                                    className="btn-secondary task-detail-delete"
+                                    disabled={saving || deleting}
+                                    onClick={() => setDeleteConfirmOpen(true)}
+                                >
+                                    Delete task
+                                </button>
+                            )}
                             <button type="button" className="btn-secondary" onClick={onClose}>
                                 Cancel
                             </button>
@@ -489,7 +528,25 @@ export default function TaskDetailModal({
                     )}
                 </div>
             </div>
-        </div>,
+        </div>
+        <ConfirmDialog
+            open={deleteConfirmOpen}
+            title="Delete this task?"
+            confirmLabel="Delete"
+            cancelLabel="Cancel"
+            danger
+            loading={deleting}
+            onCancel={() => !deleting && setDeleteConfirmOpen(false)}
+            onConfirm={confirmDelete}
+        >
+            <p style={{ margin: '0 0 8px 0' }}>
+                This cannot be undone. The task will be removed for everyone.
+            </p>
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>
+                You can delete only tasks you created yourself.
+            </p>
+        </ConfirmDialog>
+        </Fragment>,
         document.body
     );
 }

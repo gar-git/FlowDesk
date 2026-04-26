@@ -387,6 +387,58 @@ router.post('/:id/forward/accept', checkToken, async (req, res) => {
 });
 
 
+// DELETE /api/tasks/:id — only the user who created the task may delete it
+router.delete('/:id', checkToken, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id, 10);
+        if (!id) {
+            return res.status(400).send({ statusCode: 400, message: 'Invalid task id' });
+        }
+
+        const taskRes = await db
+            .select({
+                creatorId: tasks.creatorId,
+                companyId: projects.companyId,
+            })
+            .from(tasks)
+            .innerJoin(projects, eq(tasks.projectId, projects.id))
+            .where(eq(tasks.id, id))
+            .limit(1);
+
+        if (!taskRes.length) {
+            return res.status(404).send({ statusCode: 404, message: 'Task not found' });
+        }
+
+        const row = taskRes[0];
+        if (row.companyId !== req.user.companyId) {
+            return res.status(403).send({ statusCode: 403, message: 'Forbidden' });
+        }
+        if (row.creatorId == null) {
+            return res.status(403).send({
+                statusCode: 403,
+                message: 'This task cannot be deleted (no creator on record).',
+            });
+        }
+        if (Number(row.creatorId) !== Number(req.user.id)) {
+            return res.status(403).send({
+                statusCode: 403,
+                message: 'Only the person who created this task can delete it.',
+            });
+        }
+
+        await db.delete(tasks).where(eq(tasks.id, id));
+
+        res.status(200).send({ statusCode: 200, message: 'Task deleted' });
+    } catch (err) {
+        const code = err.statusCode;
+        if (code) {
+            return res.status(code).send({ statusCode: code, message: err.message });
+        }
+        console.error('Delete task error:', err.message);
+        res.status(500).send({ statusCode: 500, message: err.message });
+    }
+});
+
 // PATCH /api/tasks/:id
 router.patch('/:id', checkToken, async (req, res) => {
     try {

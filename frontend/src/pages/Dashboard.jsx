@@ -829,8 +829,18 @@ export default function Dashboard() {
                         defaultAssigneeId={user?.id}
                         showSnackbar={showSnackbar}
                         onCreated={(raw) => {
-                            if (raw) setTasks((prev) => [...prev, normalizeTask(raw)]);
-                            else refreshTasks();
+                            if (!raw) {
+                                refreshTasks();
+                                return;
+                            }
+                            // The board only lists tasks where you are the assignee (see GET /tasks/all).
+                            // Merging a task created for someone else would incorrectly show it on the creator's board.
+                            const forSelf =
+                                Number(raw.assigneeId) === Number(user?.id) ||
+                                Number(raw.assignee_id) === Number(user?.id);
+                            if (forSelf) {
+                                setTasks((prev) => [...prev, normalizeTask(raw)]);
+                            }
                         }}
                     />
                 )}

@@ -37,4 +37,5 @@ export const API_Route = {
     forwardTask:   (id) => `tasks/${id}/forward`,
     acceptForward: (id) => `tasks/${id}/forward/accept`,
     updateTask:    (id) => `tasks/${id}`,
+    deleteTask:    (id) => `tasks/${id}`,
 };

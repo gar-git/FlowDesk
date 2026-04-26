@@ -25,6 +25,14 @@ export async function updateTask(taskId, payload) {
     }
 }
 
+export async function deleteTask(taskId) {
+    try {
+        return await axios.delete(API_Route.deleteTask(taskId));
+    } catch (error) {
+        return error;
+    }
+}
+
 export async function forwardTask(taskId, targetUserId) {
     try {
         return await axios.put(API_Route.forwardTask(taskId), {
