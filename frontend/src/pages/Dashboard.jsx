@@ -13,6 +13,7 @@ import TaskBoardKanban from '../components/dashboard/TaskBoardKanban';
 import AddTaskModal from '../components/dashboard/AddTaskModal';
 import TaskDetailModal from '../components/dashboard/TaskDetailModal';
 import SettingsPanel from '../components/dashboard/SettingsPanel';
+import { useTaskSocket } from '../hooks/useTaskSocket';
 
 // ==============================|| DASHBOARD — role-aware ||============================== //
 
@@ -171,6 +172,12 @@ export default function Dashboard() {
             setTasks((tBody.data || []).map(normalizeTask));
         }
     }, []);
+
+    useTaskSocket({
+        userId: user?.id,
+        onRefresh: refreshTasks,
+        showSnackbar,
+    });
 
     const selectedTask = useMemo(
         () => (selectedTaskId != null ? tasks.find((t) => t.id === selectedTaskId) ?? null : null),

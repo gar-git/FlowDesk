@@ -31,7 +31,11 @@ app.use('/api/tasks', taskRoutes);
 const socketUsers = new Map();
 
 io.on('connection', (socket) => {
-    socket.on('register', (userId) => { socketUsers.set(userId, socket.id); });
+    // Normalize to number so lookup matches job payloads (BullMQ uses numeric toUserId)
+    socket.on('register', (userId) => {
+        const id = Number(userId);
+        if (Number.isFinite(id) && id > 0) socketUsers.set(id, socket.id);
+    });
 
     socket.on('disconnect', () => {
         Array.from(socketUsers.entries()).forEach(([userId, sid]) => {
