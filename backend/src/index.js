@@ -96,7 +96,11 @@ const notificationWorker = new Worker(
         if (type === 'task_assigned' && isEmailConfigured()) {
             try {
                 const userRows = await db
-                    .select({ email: users.email, firstName: users.firstName })
+                    .select({
+                        email: users.email,
+                        firstName: users.firstName,
+                        emailTaskAssigned: users.emailTaskAssigned,
+                    })
                     .from(users)
                     .where(eq(users.id, toUserId))
                     .limit(1);
@@ -105,6 +109,10 @@ const notificationWorker = new Worker(
                 if (!u?.email) {
                     console.log(
                         `[email] task_assigned skipped job=${job.id} reason=no_user_email toUserId=${toUserId}`
+                    );
+                } else if (!u.emailTaskAssigned) {
+                    console.log(
+                        `[email] task_assigned skipped job=${job.id} reason=user_opted_out toUserId=${toUserId}`
                     );
                 } else {
                     const result = await sendTaskAssignedEmail({

@@ -29,6 +29,9 @@ export const users = mysqlTable('users', {
     employeeCode: varchar('employee_code', { length: 100 }).notNull(),
     managerId: int('manager_id').references(() => users.id),
     tlId: int('tl_id').references(() => users.id),
+    emailTaskAssigned: tinyint('email_task_assigned').notNull().default(1),
+    emailTaskDueSoon: tinyint('email_task_due_soon').notNull().default(1),
+    emailTaskStatus: tinyint('email_task_status').notNull().default(0),
     createdAt: timestamp('created_at').defaultNow(),
     deletedAt: timestamp('deleted_at'),
 });

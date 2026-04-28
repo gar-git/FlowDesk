@@ -1,6 +1,22 @@
 import axios from "../utils/axios";
 import { API_Route } from "../utils/apiRoute";
 
+export async function getProfile() {
+  try {
+    return await axios.get(API_Route.getProfile);
+  } catch (error) {
+    return error;
+  }
+}
+
+export async function updateNotificationPrefs(payload) {
+  try {
+    return await axios.patch(API_Route.meNotifications, payload);
+  } catch (error) {
+    return error;
+  }
+}
+
 export async function getTeam() {
   try {
     return await axios.get(API_Route.getTeam);

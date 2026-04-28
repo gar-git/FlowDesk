@@ -159,7 +159,6 @@ router.post('/', checkToken, async (req, res) => {
             description,
             assignee_id,
             priority = 'medium',
-            due_date = null,
             projectId,
             tags: tagsBody,
             task_type: taskTypeSnake,
@@ -200,6 +199,12 @@ router.post('/', checkToken, async (req, res) => {
                 ? null
                 : String(startRaw).slice(0, 10);
 
+        const dueRaw = req.body.due_date ?? req.body.dueDate;
+        const dueDateCreate =
+            dueRaw === undefined || dueRaw === null || dueRaw === ''
+                ? null
+                : String(dueRaw).slice(0, 10);
+
         let taskTypeVal;
         try {
             taskTypeVal = parseTaskTypeForCreateOrReplace(taskTypeSnake ?? taskTypeCamel);
@@ -218,7 +223,7 @@ router.post('/', checkToken, async (req, res) => {
                 creatorId,
                 assigneeId: assigneeId,
                 priority: PRIORITY[priority.toUpperCase()] ?? PRIORITY.MEDIUM,
-                dueDate: due_date,
+                dueDate: dueDateCreate,
                 startDate,
                 tags: tagsVal,
                 taskType: taskTypeVal,
@@ -499,13 +504,18 @@ router.patch('/:id', checkToken, async (req, res) => {
         }
 
         const startRaw = startSnake ?? startCamel;
+        const dueRaw = dueSnake ?? dueCamel;
         if (startRaw !== undefined) {
             updates.startDate =
                 startRaw === null || startRaw === '' ? null : String(startRaw).slice(0, 10);
         }
-
-        const dueRaw = dueSnake ?? dueCamel;
         if (dueRaw !== undefined) {
+            if (!canSetPriorityAssignee) {
+                return res.status(403).send({
+                    statusCode: 403,
+                    message: 'Only the task creator can change the due date.',
+                });
+            }
             updates.dueDate =
                 dueRaw === null || dueRaw === '' ? null : String(dueRaw).slice(0, 10);
         }

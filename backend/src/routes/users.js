@@ -137,6 +137,9 @@ router.get('/profile', checkToken, async (req, res) => {
                 employeeCode: users.employeeCode,
                 managerId: users.managerId,
                 tlId: users.tlId,
+                emailTaskAssigned: users.emailTaskAssigned,
+                emailTaskDueSoon: users.emailTaskDueSoon,
+                emailTaskStatus: users.emailTaskStatus,
             })
             .from(users)
             .innerJoin(roleMaster, eq(users.roleId, roleMaster.id))
@@ -186,6 +189,38 @@ router.patch('/me/password', checkToken, async (req, res) => {
         res.status(200).send({ statusCode: 200, message: 'Password updated successfully' });
     } catch (err) {
         console.error('Change password error:', err);
+        res.status(500).send({ statusCode: 500, message: 'Error occurred' });
+    }
+});
+
+// PATCH /api/users/me/notifications — email notification toggles
+router.patch('/me/notifications', checkToken, async (req, res) => {
+    try {
+        const a = req.body;
+        const toNum = (v) => (v === true || v === 1 || v === '1' || v === 'true' ? 1 : 0);
+
+        const next = {};
+        if (a.emailTaskAssigned !== undefined) {
+            next.emailTaskAssigned = toNum(a.emailTaskAssigned);
+        }
+        if (a.emailTaskDueSoon !== undefined) {
+            next.emailTaskDueSoon = toNum(a.emailTaskDueSoon);
+        }
+        if (a.emailTaskStatus !== undefined) {
+            next.emailTaskStatus = toNum(a.emailTaskStatus);
+        }
+
+        if (Object.keys(next).length === 0) {
+            return res.status(400).send({
+                statusCode: 400,
+                message: 'Provide at least one: emailTaskAssigned, emailTaskDueSoon, emailTaskStatus',
+            });
+        }
+
+        await db.update(users).set(next).where(eq(users.id, req.user.id));
+        res.status(200).send({ statusCode: 200, message: 'Notification preferences updated' });
+    } catch (err) {
+        console.error('Notification prefs error:', err);
         res.status(500).send({ statusCode: 500, message: 'Error occurred' });
     }
 });

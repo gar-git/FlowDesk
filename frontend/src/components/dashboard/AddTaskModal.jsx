@@ -38,6 +38,8 @@ export default function AddTaskModal({
     const [projectId, setProjectId] = useState('');
     const [assigneeId, setAssigneeId] = useState(String(defaultAssigneeId ?? ''));
     const [priority, setPriority] = useState('medium');
+    const [startDate, setStartDate] = useState('');
+    const [dueDate, setDueDate] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
 
@@ -48,6 +50,8 @@ export default function AddTaskModal({
         setProjectId(projects[0]?.id != null ? String(projects[0].id) : '');
         setAssigneeId(String(defaultAssigneeId ?? ''));
         setPriority('medium');
+        setStartDate('');
+        setDueDate('');
         setError('');
     }, [open, projects, defaultAssigneeId]);
 
@@ -94,6 +98,8 @@ export default function AddTaskModal({
                 projectId: pid,
                 assignee_id: aid,
                 priority,
+                startDate: startDate.trim() || undefined,
+                due_date: dueDate.trim() || undefined,
             });
             const body = res?.data ?? res;
             if (body?.statusCode === StatusCode.created) {
@@ -206,34 +212,35 @@ export default function AddTaskModal({
                                     <option value="high">High</option>
                                 </select>
                             </label>
+                            <div className="add-task-date-row">
+                                <label style={{ ...labelStyle, marginTop: 0 }}>
+                                    Start date (optional)
+                                    <input
+                                        type="date"
+                                        className="form-select dashboard-select"
+                                        style={inputStyle}
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                    />
+                                </label>
+                                <label style={{ ...labelStyle, marginTop: 0 }}>
+                                    Due date (optional)
+                                    <input
+                                        type="date"
+                                        className="form-select dashboard-select"
+                                        style={inputStyle}
+                                        value={dueDate}
+                                        onChange={(e) => setDueDate(e.target.value)}
+                                    />
+                                </label>
+                            </div>
                             {error && (
                                 <div className="error-msg" style={{ marginTop: 14 }}>
                                     {error}
                                 </div>
                             )}
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    gap: 10,
-                                    justifyContent: 'flex-end',
-                                    marginTop: 20,
-                                }}
-                            >
-                                <button
-                                    type="button"
-                                    onClick={onClose}
-                                    style={{
-                                        padding: '10px 18px',
-                                        borderRadius: 8,
-                                        border: '1px solid var(--border)',
-                                        background: 'transparent',
-                                        color: 'var(--text-secondary)',
-                                        fontSize: 14,
-                                        fontWeight: 600,
-                                        cursor: 'pointer',
-                                        fontFamily: 'inherit',
-                                    }}
-                                >
+                            <div className="add-task-modal-actions">
+                                <button type="button" className="btn-secondary" onClick={onClose}>
                                     Cancel
                                 </button>
                                 <button

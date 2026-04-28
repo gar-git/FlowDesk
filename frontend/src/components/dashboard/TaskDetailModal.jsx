@@ -28,6 +28,14 @@ const AVATAR_TINTS = [
     'linear-gradient(135deg, #fbbf24, #d97706)',
 ];
 
+function formatDateRead(iso) {
+    if (iso == null || String(iso).trim() === '') return '—';
+    const s = String(iso).slice(0, 10);
+    const d = new Date(`${s}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return s;
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
 function strHash(s) {
     let h = 0;
     for (let i = 0; i < s.length; i += 1) h = (h << 5) - h + s.charCodeAt(i);
@@ -106,6 +114,9 @@ export default function TaskDetailModal({
     const canForward = isAssignee && forwardOptions?.length > 0;
     const canEditPriorityAndAssignee =
         task.creatorId == null || Number(task.creatorId) === Number(currentUserId);
+    /** Non-creators (e.g. assignee) may adjust start; only the creator can change the due date. */
+    const canEditStartDate = isAssignee;
+    const canEditDueDate = canEditPriorityAndAssignee;
 
     const isDelegated =
         task &&
@@ -223,8 +234,8 @@ export default function TaskDetailModal({
                 ...(canEditPriorityAndAssignee
                     ? { priority, assignee_id: Number(assigneeId) }
                     : {}),
-                startDate: startDate || null,
-                dueDate: dueDate || null,
+                ...(canEditStartDate ? { startDate: startDate || null } : {}),
+                ...(canEditDueDate ? { dueDate: dueDate || null } : {}),
                 tags: tags.trim() || null,
                 task_type: taskTypeKeyToApi(taskTypeVal),
             });
@@ -367,21 +378,34 @@ export default function TaskDetailModal({
                         <div className="task-detail-grid">
                             <div className="task-detail-cell">
                                 <div className="task-detail-cell-label">Start date</div>
-                                <input
-                                    type="date"
-                                    className="task-detail-control task-detail-control--date"
-                                    value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                />
+                                {canEditStartDate ? (
+                                    <input
+                                        type="date"
+                                        className="task-detail-control task-detail-control--date"
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                    />
+                                ) : (
+                                    <div className="task-detail-date-readout">{formatDateRead(startDate)}</div>
+                                )}
                             </div>
                             <div className="task-detail-cell">
                                 <div className="task-detail-cell-label">Due date</div>
-                                <input
-                                    type="date"
-                                    className="task-detail-control task-detail-control--date"
-                                    value={dueDate}
-                                    onChange={(e) => setDueDate(e.target.value)}
-                                />
+                                {canEditDueDate ? (
+                                    <input
+                                        type="date"
+                                        className="task-detail-control task-detail-control--date"
+                                        value={dueDate}
+                                        onChange={(e) => setDueDate(e.target.value)}
+                                    />
+                                ) : (
+                                    <>
+                                        <div className="task-detail-date-readout">{formatDateRead(dueDate)}</div>
+                                        {isDelegated && (
+                                            <p className="task-detail-cell-note">Due date is set by the task creator</p>
+                                        )}
+                                    </>
+                                )}
                             </div>
 
                             <div className="task-detail-cell">
