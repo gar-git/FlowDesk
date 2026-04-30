@@ -2488,6 +2488,79 @@ body {
   color-scheme: light;
 }
 
+/* Pending task transfers — recipient accepts or declines */
+.incoming-forwards {
+  margin-bottom: 20px;
+  padding: 18px 20px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+.incoming-forwards-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 6px 0;
+}
+
+.incoming-forwards-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 14px 0;
+  line-height: 1.45;
+}
+
+.incoming-forwards-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.incoming-forwards-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+}
+
+.incoming-forwards-item-main {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.incoming-forwards-task-title {
+  display: block;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.incoming-forwards-meta {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.incoming-forwards-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.incoming-forwards-btn {
+  min-width: 88px;
+}
+
 /* Kanban task cards — dashboard reference layout */
 button.app-task-card-refined {
   display: block;

@@ -6,12 +6,13 @@ import { useSnackbar } from '../utils/SnackbarProvider';
 import { getCompanyMe } from '../api/companies';
 import { getTeam, createUserByAdmin, getRoleDropdown, getRoster } from '../api/users';
 import { listProjects } from '../api/projects';
-import { listTasks } from '../api/tasks';
+import { listTasks, listIncomingForwards } from '../api/tasks';
 import OrganizationPanel from '../components/dashboard/OrganizationPanel';
 import ProjectsPanel from '../components/dashboard/ProjectsPanel';
 import TaskBoardKanban from '../components/dashboard/TaskBoardKanban';
 import AddTaskModal from '../components/dashboard/AddTaskModal';
 import TaskDetailModal from '../components/dashboard/TaskDetailModal';
+import IncomingForwardRequests from '../components/dashboard/IncomingForwardRequests';
 import SettingsPanel from '../components/dashboard/SettingsPanel';
 import { useTaskSocket } from '../hooks/useTaskSocket';
 
@@ -122,6 +123,7 @@ export default function Dashboard() {
     const { showSnackbar } = useSnackbar();
 
     const [tasks, setTasks] = useState([]);
+    const [incomingForwards, setIncomingForwards] = useState([]);
     const [projectsList, setProjectsList] = useState([]);
     const [team, setTeam] = useState([]);
     const [company, setCompany] = useState(null);
@@ -173,9 +175,22 @@ export default function Dashboard() {
         }
     }, []);
 
+    const refreshIncomingForwards = useCallback(async () => {
+        const res = await listIncomingForwards().catch(() => null);
+        const body = res?.data ?? res;
+        if (body?.statusCode === StatusCode.success) {
+            setIncomingForwards(body.data || []);
+        }
+    }, []);
+
+    const refreshBoard = useCallback(async () => {
+        await refreshTasks();
+        await refreshIncomingForwards();
+    }, [refreshTasks, refreshIncomingForwards]);
+
     useTaskSocket({
         userId: user?.id,
-        onRefresh: refreshTasks,
+        onRefresh: refreshBoard,
         showSnackbar,
     });
 
@@ -189,10 +204,22 @@ export default function Dashboard() {
         if (!tasks.some((t) => t.id === selectedTaskId)) setSelectedTaskId(null);
     }, [tasks, selectedTaskId]);
 
-    const forwardOptions = useMemo(
-        () => assigneeOptions.filter((o) => o.id !== Number(user?.id)),
-        [assigneeOptions, user?.id]
-    );
+    const forwardOptions = useMemo(() => {
+        const uid = Number(user?.id);
+        if (!Number.isFinite(uid) || uid <= 0) return [];
+        if (isManagerOrTL) {
+            return assigneeOptions.filter((o) => o.id !== uid);
+        }
+        return (team || [])
+            .filter((m) => Number(m.id) !== uid)
+            .map((m) => ({
+                id: Number(m.id),
+                label:
+                    `${m.firstName || ''} ${m.lastName || ''}`.trim() ||
+                    m.email ||
+                    `User ${m.id}`,
+            }));
+    }, [isManagerOrTL, assigneeOptions, team, user?.id]);
 
     const sidebarItems = useMemo(() => {
         if (isAdmin) {
@@ -280,7 +307,8 @@ export default function Dashboard() {
                 const canTeam =
                     rid === roleType.admin ||
                     rid === roleType.manager ||
-                    rid === roleType.tl;
+                    rid === roleType.tl ||
+                    rid === roleType.developer;
 
                 if (canTeam) {
                     const tRes = await getTeam();
@@ -314,9 +342,10 @@ export default function Dashboard() {
                 }
 
                 if (rid !== roleType.admin) {
-                    const [tasksRes, projRes] = await Promise.all([
+                    const [tasksRes, projRes, incomingRes] = await Promise.all([
                         listTasks().catch(() => null),
                         listProjects().catch(() => null),
+                        listIncomingForwards().catch(() => null),
                     ]);
                     const tasksBody = tasksRes?.data ?? tasksRes;
                     if (!cancelled && tasksBody?.statusCode === StatusCode.success) {
@@ -325,6 +354,10 @@ export default function Dashboard() {
                     const projBody = projRes?.data ?? projRes;
                     if (!cancelled && projBody?.statusCode === StatusCode.success) {
                         setProjectsList(projBody.data || []);
+                    }
+                    const incomingBody = incomingRes?.data ?? incomingRes;
+                    if (!cancelled && incomingBody?.statusCode === StatusCode.success) {
+                        setIncomingForwards(incomingBody.data || []);
                     }
                 }
             } finally {
@@ -808,6 +841,14 @@ export default function Dashboard() {
 
                 {navSection === 'settings' && (
                     <SettingsPanel showSnackbar={showSnackbar} />
+                )}
+
+                {!isAdmin && navSection === 'board' && (
+                    <IncomingForwardRequests
+                        items={incomingForwards}
+                        onChanged={refreshBoard}
+                        showSnackbar={showSnackbar}
+                    />
                 )}
 
                 {!isAdmin && navSection === 'board' && (

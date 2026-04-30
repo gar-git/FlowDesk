@@ -38,6 +38,8 @@ export function useTaskSocket({ userId, onRefresh, showSnackbar }) {
                 showSnackbarRef.current?.('A task was forwarded to you', 'info');
             } else if (t === 'forward_accepted') {
                 showSnackbarRef.current?.('A forwarded task was accepted', 'info');
+            } else if (t === 'forward_rejected') {
+                showSnackbarRef.current?.('Your transfer request was declined', 'info');
             }
         };
 

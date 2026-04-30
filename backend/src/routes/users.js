@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { eq, asc, and } from 'drizzle-orm';
+import { eq, asc, and, ne } from 'drizzle-orm';
 import { getManageableUserIds, getHierarchyEditableUserIdsForManager } from '../helpers/orgScope.js';
 import { db } from '../db.js';
 import { users, roleMaster, companies } from '../db/schema.js';
@@ -289,6 +289,49 @@ router.get('/team', checkToken, async (req, res) => {
                 ));
 
             return res.status(200).send({ statusCode: 200, message: 'Team members retrieved successfully.', data: members });
+        }
+
+        // Developer — peers under the same tech lead (for transfer requests / forwards)
+        if (roleId === ROLES.DEVELOPER) {
+            const meRows = await db
+                .select({ tlId: users.tlId })
+                .from(users)
+                .where(and(eq(users.id, id), eq(users.companyId, companyId)))
+                .limit(1);
+
+            const myTlId = meRows[0]?.tlId;
+            if (myTlId == null) {
+                return res.status(200).send({
+                    statusCode: 200,
+                    message: 'Team members retrieved successfully.',
+                    data: [],
+                });
+            }
+
+            const peers = await db
+                .select({
+                    id: users.id,
+                    firstName: users.firstName,
+                    lastName: users.lastName,
+                    email: users.email,
+                    roleId: users.roleId,
+                    employeeCode: users.employeeCode,
+                })
+                .from(users)
+                .where(and(
+                    eq(users.companyId, companyId),
+                    eq(users.isDeleted, 0),
+                    eq(users.tlId, myTlId),
+                    ne(users.id, id),
+                    eq(users.roleId, ROLES.DEVELOPER)
+                ))
+                .orderBy(asc(users.firstName));
+
+            return res.status(200).send({
+                statusCode: 200,
+                message: 'Team members retrieved successfully.',
+                data: peers,
+            });
         }
 
         return res.status(403).send({ statusCode: 403, message: 'Access denied' });

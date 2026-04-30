@@ -9,6 +9,14 @@ export async function listTasks() {
     }
 }
 
+export async function listIncomingForwards() {
+    try {
+        return await axios.get(API_Route.forwardIncoming);
+    } catch (error) {
+        return error;
+    }
+}
+
 export async function createTask(payload) {
     try {
         return await axios.post(API_Route.createTask, payload);
@@ -38,6 +46,22 @@ export async function forwardTask(taskId, targetUserId) {
         return await axios.put(API_Route.forwardTask(taskId), {
             target_user_id: targetUserId,
         });
+    } catch (error) {
+        return error;
+    }
+}
+
+export async function acceptForward(taskId) {
+    try {
+        return await axios.post(API_Route.acceptForward(taskId));
+    } catch (error) {
+        return error;
+    }
+}
+
+export async function rejectForward(taskId) {
+    try {
+        return await axios.post(API_Route.rejectForward(taskId));
     } catch (error) {
         return error;
     }

@@ -1,5 +1,5 @@
 import express from 'express';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, asc } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import { db } from '../db.js';
 import { tasks, users, projects } from '../db/schema.js';
@@ -148,6 +148,57 @@ function userMayEditPriorityAndAssignee(req, task) {
     const c = task.creatorId;
     if (c == null) return true; // legacy rows without creator
     return Number(c) === Number(req.user.id);
+}
+
+/** Ensures forward target exists in company; developers may only request transfers to dev peers under the same TL. */
+async function assertValidForwardTarget(req, targetUserId) {
+    const targetRows = await db
+        .select({
+            id: users.id,
+            companyId: users.companyId,
+            tlId: users.tlId,
+            roleId: users.roleId,
+            isDeleted: users.isDeleted,
+        })
+        .from(users)
+        .where(eq(users.id, targetUserId))
+        .limit(1);
+
+    if (!targetRows.length || targetRows[0].isDeleted) {
+        const err = new Error('Target user not found');
+        err.statusCode = 400;
+        throw err;
+    }
+    const target = targetRows[0];
+    if (target.companyId !== req.user.companyId) {
+        const err = new Error('Target user is not in your company');
+        err.statusCode = 403;
+        throw err;
+    }
+
+    if (req.user.roleId !== ROLES.DEVELOPER) return;
+
+    const selfRows = await db
+        .select({ tlId: users.tlId })
+        .from(users)
+        .where(eq(users.id, req.user.id))
+        .limit(1);
+    const myTlId = selfRows[0]?.tlId;
+    if (myTlId == null) {
+        const err = new Error('You must be assigned to a tech lead to request a transfer');
+        err.statusCode = 403;
+        throw err;
+    }
+    if (Number(target.tlId) !== Number(myTlId)) {
+        const err = new Error('You can only request a transfer to a teammate under your tech lead');
+        err.statusCode = 403;
+        throw err;
+    }
+    if (target.roleId !== ROLES.DEVELOPER) {
+        const err = new Error('You can only transfer tasks to another developer on your team');
+        err.statusCode = 403;
+        throw err;
+    }
 }
 
 
@@ -318,6 +369,37 @@ router.get('/all', checkToken, async (req, res) => {
 });
 
 
+// GET /api/tasks/forward-incoming — tasks someone asked you to take over (pending acceptance)
+router.get('/forward-incoming', checkToken, async (req, res) => {
+    try {
+        const fromUser = alias(users, 'forward_from_user');
+
+        const rows = await db
+            .select({
+                id: tasks.id,
+                title: tasks.title,
+                projectName: projects.name,
+                forwardFrom: tasks.forwardFrom,
+                fromFirstName: fromUser.firstName,
+                fromLastName: fromUser.lastName,
+            })
+            .from(tasks)
+            .innerJoin(projects, eq(tasks.projectId, projects.id))
+            .leftJoin(fromUser, eq(tasks.forwardFrom, fromUser.id))
+            .where(and(
+                eq(tasks.pendingForwardTo, req.user.id),
+                eq(projects.companyId, req.user.companyId)
+            ))
+            .orderBy(asc(tasks.updatedAt));
+
+        res.status(200).send({ statusCode: 200, data: rows });
+    } catch (err) {
+        console.error('Forward incoming error:', err.message);
+        res.status(500).send({ statusCode: 500, message: err.message });
+    }
+});
+
+
 // PUT /api/tasks/:id/forward
 router.put('/:id/forward', checkToken, async (req, res) => {
     try {
@@ -325,17 +407,31 @@ router.put('/:id/forward', checkToken, async (req, res) => {
         const { target_user_id } = req.body;
 
         const taskRes = await db
-            .select({ assigneeId: tasks.assigneeId })
+            .select({
+                assigneeId: tasks.assigneeId,
+                companyId: projects.companyId,
+            })
             .from(tasks)
+            .innerJoin(projects, eq(tasks.projectId, projects.id))
             .where(eq(tasks.id, id))
             .limit(1);
 
         if (!taskRes.length) return res.status(404).send({ statusCode: 404, message: 'Task not found' });
+        if (taskRes[0].companyId !== req.user.companyId) {
+            return res.status(403).send({ statusCode: 403, message: 'Forbidden' });
+        }
         if (taskRes[0].assigneeId !== req.user.id) return res.status(403).send({ statusCode: 403, message: 'Not owner' });
 
         const targetId = Number(target_user_id);
         if (!targetId || targetId === req.user.id) {
             return res.status(400).send({ statusCode: 400, message: 'Valid target_user_id is required' });
+        }
+
+        try {
+            await assertValidForwardTarget(req, targetId);
+        } catch (e) {
+            const code = e.statusCode || 403;
+            return res.status(code).send({ statusCode: code, message: e.message });
         }
 
         await db
@@ -378,15 +474,64 @@ router.post('/:id/forward/accept', checkToken, async (req, res) => {
             .set({ assigneeId: req.user.id, pendingForwardTo: null, forwardFrom: null })
             .where(eq(tasks.id, id));
 
-        await notificationQueue.add('notify', {
-            toUserId: originalSender,
-            type: 'forward_accepted',
-            payload: { taskId: id },
-        });
+        if (originalSender != null) {
+            await notificationQueue.add('notify', {
+                toUserId: originalSender,
+                type: 'forward_accepted',
+                payload: { taskId: id },
+            });
+        }
 
         res.status(200).send({ statusCode: 200, message: 'Task forwarded successfully' });
     } catch (err) {
         console.error('Accept forward error:', err.message);
+        res.status(500).send({ statusCode: 500, message: err.message });
+    }
+});
+
+
+// POST /api/tasks/:id/forward/reject — recipient declines; assignee unchanged
+router.post('/:id/forward/reject', checkToken, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id, 10);
+
+        const taskRes = await db
+            .select({
+                pendingForwardTo: tasks.pendingForwardTo,
+                forwardFrom: tasks.forwardFrom,
+                companyId: projects.companyId,
+            })
+            .from(tasks)
+            .innerJoin(projects, eq(tasks.projectId, projects.id))
+            .where(eq(tasks.id, id))
+            .limit(1);
+
+        if (!taskRes.length) return res.status(404).send({ statusCode: 404, message: 'Task not found' });
+        if (taskRes[0].companyId !== req.user.companyId) {
+            return res.status(403).send({ statusCode: 403, message: 'Forbidden' });
+        }
+        if (taskRes[0].pendingForwardTo !== req.user.id) {
+            return res.status(403).send({ statusCode: 403, message: 'No pending transfer request for you on this task' });
+        }
+
+        const originalSender = taskRes[0].forwardFrom;
+
+        await db
+            .update(tasks)
+            .set({ pendingForwardTo: null, forwardFrom: null })
+            .where(eq(tasks.id, id));
+
+        if (originalSender != null) {
+            await notificationQueue.add('notify', {
+                toUserId: originalSender,
+                type: 'forward_rejected',
+                payload: { taskId: id },
+            });
+        }
+
+        res.status(200).send({ statusCode: 200, message: 'Transfer request declined' });
+    } catch (err) {
+        console.error('Reject forward error:', err.message);
         res.status(500).send({ statusCode: 500, message: err.message });
     }
 });

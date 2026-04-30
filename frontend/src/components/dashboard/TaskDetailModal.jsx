@@ -524,7 +524,8 @@ export default function TaskDetailModal({
                         <div className="task-detail-forward">
                             <h3 className="task-detail-forward-title">Forward task</h3>
                             <p className="task-detail-forward-hint">
-                                Ask a teammate to take over. They will need to accept the request.
+                                Ask a teammate to take over. They accept or decline under Transfer requests on
+                                their board; the assignee changes only if they accept.
                             </p>
                             <div className="task-detail-forward-row">
                                 <select
