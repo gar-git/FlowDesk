@@ -2017,6 +2017,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: 24px;
+  overscroll-behavior: contain;
 }
 
 /* Wider than default .modal-panel (440px); must beat .modal-panel max-width (same specificity, later = wins when combined) */
@@ -2041,6 +2042,8 @@ body {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
   padding: 0 24px 28px;
 }
 

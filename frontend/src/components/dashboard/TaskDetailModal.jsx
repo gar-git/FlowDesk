@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import ConfirmDialog from '../common/ConfirmDialog';
 import { taskStatus, taskType, taskTypeLabel, StatusCode } from '../../utils/constants';
@@ -106,6 +106,10 @@ export default function TaskDetailModal({
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [error, setError] = useState('');
 
+    const modalBackdropRef = useRef(null);
+    const modalPanelRef = useRef(null);
+    const modalBodyRef = useRef(null);
+
     const isAssignee = task && Number(task.assigneeId) === Number(currentUserId);
     const canDelete =
         task != null &&
@@ -201,11 +205,102 @@ export default function TaskDetailModal({
 
     useEffect(() => {
         if (!task) return;
-        const prev = document.body.style.overflow;
+        const prevHtmlOverflow = document.documentElement.style.overflow;
+        const prevBodyOverflow = document.body.style.overflow;
+        document.documentElement.style.overflow = 'hidden';
         document.body.style.overflow = 'hidden';
+
+        const scrollParents = document.querySelectorAll('.app-dash-workarea');
+        const prevOverflow = [];
+        scrollParents.forEach((el, i) => {
+            prevOverflow[i] = el.style.overflow;
+            el.style.overflow = 'hidden';
+        });
+
         return () => {
-            document.body.style.overflow = prev;
+            document.documentElement.style.overflow = prevHtmlOverflow;
+            document.body.style.overflow = prevBodyOverflow;
+            scrollParents.forEach((el, i) => {
+                el.style.overflow = prevOverflow[i] ?? '';
+            });
         };
+    }, [task]);
+
+    /** Wheel events often scroll nested `.app-dash-workarea` instead of this modal. Capture wheel,
+     * apply delta to `.modal-panel-body`, and preventDefault so the page does not move. */
+    useLayoutEffect(() => {
+        if (!task) return undefined;
+
+        const onWheel = (e) => {
+            if (e.target.closest?.('.confirm-dialog-backdrop')) return;
+
+            const backdrop = modalBackdropRef.current;
+            const panel = modalPanelRef.current;
+            const bodyEl = modalBodyRef.current;
+            if (!backdrop || !panel || !bodyEl) return;
+            if (!backdrop.contains(e.target)) return;
+
+            const rawTarget = e.target;
+            if (rawTarget.tagName === 'TEXTAREA') return;
+            if (rawTarget.tagName === 'INPUT') {
+                const t = rawTarget.type;
+                if (t === 'date' || t === 'datetime-local' || t === 'time') return;
+            }
+            if (rawTarget.tagName === 'SELECT') return;
+
+            if (!panel.contains(e.target)) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+
+            if (!bodyEl.contains(e.target)) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+
+            e.preventDefault();
+            e.stopPropagation();
+            const maxScroll = Math.max(0, bodyEl.scrollHeight - bodyEl.clientHeight);
+            let next = bodyEl.scrollTop + e.deltaY;
+            if (next < 0) next = 0;
+            if (next > maxScroll) next = maxScroll;
+            bodyEl.scrollTop = next;
+        };
+
+        document.addEventListener('wheel', onWheel, { passive: false, capture: true });
+        return () => document.removeEventListener('wheel', onWheel, { capture: true });
+    }, [task]);
+
+    /** Browsers may still move nested scroll parents (e.g. `.app-dash-workarea`) via scroll chaining.
+     * Pin window + workarea scroll while this modal is open so only the modal body moves. */
+    useLayoutEffect(() => {
+        if (!task) return undefined;
+
+        const workareas = Array.from(document.querySelectorAll('.app-dash-workarea'));
+        const pinned = workareas.map((el) => ({
+            el,
+            top: el.scrollTop,
+            left: el.scrollLeft,
+        }));
+        const winY = window.scrollY;
+        const winX = window.scrollX;
+
+        let raf = 0;
+        const tick = () => {
+            if (window.scrollY !== winY || window.scrollX !== winX) {
+                window.scrollTo(winX, winY);
+            }
+            pinned.forEach(({ el, top, left }) => {
+                if (el.scrollTop !== top) el.scrollTop = top;
+                if (el.scrollLeft !== left) el.scrollLeft = left;
+            });
+            raf = requestAnimationFrame(tick);
+        };
+        raf = requestAnimationFrame(tick);
+
+        return () => cancelAnimationFrame(raf);
     }, [task]);
 
     if (!task) return null;
@@ -303,8 +398,9 @@ export default function TaskDetailModal({
 
     return createPortal(
         <Fragment>
-        <div className="modal-backdrop" aria-hidden="true">
+        <div className="modal-backdrop" ref={modalBackdropRef} aria-hidden="true">
             <div
+                ref={modalPanelRef}
                 className="modal-panel task-detail-modal"
                 role="dialog"
                 aria-modal="true"
@@ -344,7 +440,7 @@ export default function TaskDetailModal({
                     </button>
                 </div>
 
-                <div className="modal-panel-body">
+                <div className="modal-panel-body" ref={modalBodyRef}>
                     <form onSubmit={handleSave} className="task-detail-form">
                         <input
                             id="task-detail-title"

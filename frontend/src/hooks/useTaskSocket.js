@@ -2,6 +2,21 @@ import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { getSocketBaseUrl } from '../utils/getSocketBaseUrl';
 
+/** Served from `public/sounds/task-assigned.mp3` */
+const TASK_ASSIGNED_SOUND_URL = `${import.meta.env.BASE_URL}sounds/task-assigned.mp3`;
+
+function playTaskAssignedSound() {
+    try {
+        const audio = new Audio(TASK_ASSIGNED_SOUND_URL);
+        audio.volume = 0.75;
+        void audio.play().catch(() => {
+            /* Blocked until user gesture, or decode error — ignore */
+        });
+    } catch {
+        /* ignore */
+    }
+}
+
 /**
  * Connects to the backend Socket.IO server, registers the current user, and refetches
  * the task list when a notification is pushed (e.g. task assigned by a lead).
@@ -29,6 +44,7 @@ export function useTaskSocket({ userId, onRefresh, showSnackbar }) {
             onRefreshRef.current?.();
             const t = msg?.type;
             if (t === 'task_assigned') {
+                playTaskAssignedSound();
                 const title = msg?.payload?.task?.title;
                 showSnackbarRef.current?.(
                     title ? `New task assigned: ${title}` : 'A new task was assigned to you',
