@@ -1,0 +1,1 @@
+import{c as t,A as a}from"./index-CApSea9J.js";async function o(r){try{return await t.post(a.createCompany,r)}catch(e){return e}}async function c(){try{return await t.get(a.companyMe)}catch(r){return r}}export{o as c,c as g};

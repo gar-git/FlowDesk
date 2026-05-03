@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import WorkspaceFrameAccent from '../components/WorkspaceFrameAccent';
 
 const features = [
   {
@@ -68,6 +69,7 @@ const devPerms = [
 
 export default function LandingPage({ onLogin, onSignup, onRegisterCompany }) {
   const [scrolled, setScrolled] = useState(false);
+  const [navMenuOpen, setNavMenuOpen] = useState(false);
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 20);
@@ -75,24 +77,92 @@ export default function LandingPage({ onLogin, onSignup, onRegisterCompany }) {
     return () => window.removeEventListener('scroll', handler);
   }, []);
 
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 769px)');
+    const closeWhenWide = () => {
+      if (mq.matches) setNavMenuOpen(false);
+    };
+    mq.addEventListener('change', closeWhenWide);
+    closeWhenWide();
+    return () => mq.removeEventListener('change', closeWhenWide);
+  }, []);
+
+  const closeNavMenu = () => setNavMenuOpen(false);
+
   return (
     <>
       {/* NAVBAR */}
-      <nav className={`navbar${scrolled ? ' scrolled' : ''}`}>
+      <nav
+        className={`navbar${scrolled ? ' scrolled' : ''}${navMenuOpen ? ' navbar--menu-open' : ''}`}
+      >
         <div className="nav-logo">
           <div className="logo-icon">F</div>
           <span className="logo-text">Flow<span>Desk</span></span>
         </div>
+        <button
+          type="button"
+          className="nav-mobile-toggle"
+          aria-label={navMenuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={navMenuOpen}
+          onClick={() => setNavMenuOpen((v) => !v)}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden fill="none">
+            {navMenuOpen ? (
+              <path
+                d="M18 6L6 18M6 6l12 12"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            ) : (
+              <path
+                d="M4 7h16M4 12h16M4 17h16"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            )}
+          </svg>
+        </button>
         <div className="nav-links">
-          <a href="#features" className="nav-link">Features</a>
-          <a href="#roles" className="nav-link">Roles</a>
+          <a href="#features" className="nav-link" onClick={closeNavMenu}>
+            Features
+          </a>
+          <a href="#roles" className="nav-link" onClick={closeNavMenu}>
+            Roles
+          </a>
           {onRegisterCompany && (
-            <button type="button" className="nav-link" onClick={onRegisterCompany}>
+            <button
+              type="button"
+              className="nav-link"
+              onClick={() => {
+                closeNavMenu();
+                onRegisterCompany();
+              }}
+            >
               Create company
             </button>
           )}
-          <button className="btn-nav-login" onClick={onLogin}>Log In</button>
-          <button className="btn-nav-signup" onClick={onSignup}>Get Started</button>
+          <button
+            type="button"
+            className="btn-nav-login"
+            onClick={() => {
+              closeNavMenu();
+              onLogin();
+            }}
+          >
+            Log In
+          </button>
+          <button
+            type="button"
+            className="btn-nav-signup"
+            onClick={() => {
+              closeNavMenu();
+              onSignup();
+            }}
+          >
+            Get Started
+          </button>
         </div>
       </nav>
 
@@ -130,9 +200,7 @@ export default function LandingPage({ onLogin, onSignup, onRegisterCompany }) {
         <div className="hero-preview">
           <div className="preview-frame">
             <div className="preview-topbar">
-              <span className="dot-red" />
-              <span className="dot-yellow" />
-              <span className="dot-green" />
+              <WorkspaceFrameAccent />
               <span className="preview-topbar-title">FlowDesk — Sprint Q2 · Ashish's Team</span>
             </div>
             <div className="preview-body">

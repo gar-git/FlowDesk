@@ -44,18 +44,20 @@ export default function OrgHierarchy({ roster, loading, onRefresh, showSnackbar 
 
   return (
     <div
+      className="table-responsive-shell"
       style={{
         borderRadius: 14,
         border: "1px solid var(--border)",
         background: "var(--bg-card)",
         overflow: "auto",
+        WebkitOverflowScrolling: "touch",
       }}
     >
       <p style={{ padding: "16px 20px", margin: 0, fontSize: 13, color: "var(--text-secondary)" }}>
         Set which <strong>manager</strong> a tech lead reports to, and which <strong>tech lead</strong> a
         developer rolls up under. Managers and admins do not need a row edit here.
       </p>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, minWidth: 640 }}>
         <thead>
           <tr
             style={{

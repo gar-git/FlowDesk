@@ -1,1 +1,0 @@
-import{b as t,A as a}from"./index-Ds9YhRT_.js";async function o(r){try{return await t.post(a.createCompany,r)}catch(e){return e}}async function c(){try{return await t.get(a.companyMe)}catch(r){return r}}export{o as c,c as g};

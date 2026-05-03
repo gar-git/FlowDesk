@@ -24,15 +24,17 @@ export const SnackbarProvider = ({ children }) => {
                     onClick={dismiss}
                     style={{
                         position: 'fixed',
-                        bottom: 28,
-                        right: 28,
+                        bottom: 'max(16px, env(safe-area-inset-bottom, 0px))',
+                        right: 'max(16px, env(safe-area-inset-right, 0px))',
+                        left: 'auto',
                         zIndex: 9999,
                         padding: '12px 20px',
                         borderRadius: 10,
                         fontSize: 14,
                         fontWeight: 500,
                         cursor: 'pointer',
-                        maxWidth: 360,
+                        maxWidth: 'min(360px, calc(100vw - 32px))',
+                        boxSizing: 'border-box',
                         boxShadow: 'var(--shadow-card)',
                         background:
                             snack.type === 'success' ? 'var(--snack-bg-success)' :

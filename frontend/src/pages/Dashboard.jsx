@@ -14,6 +14,7 @@ import AddTaskModal from '../components/dashboard/AddTaskModal';
 import TaskDetailModal from '../components/dashboard/TaskDetailModal';
 import IncomingForwardRequests from '../components/dashboard/IncomingForwardRequests';
 import SettingsPanel from '../components/dashboard/SettingsPanel';
+import WorkspaceFrameAccent from '../components/WorkspaceFrameAccent';
 import { useTaskSocket } from '../hooks/useTaskSocket';
 
 // ==============================|| DASHBOARD — role-aware ||============================== //
@@ -31,14 +32,16 @@ const initialCreateForm = {
 function TeamTable({ team, emptyHint }) {
     return (
         <div
+            className="table-responsive-shell"
             style={{
                 borderRadius: 14,
                 border: '1px solid var(--border)',
                 background: 'var(--bg-card)',
-                overflow: 'hidden',
+                overflow: 'auto',
+                WebkitOverflowScrolling: 'touch',
             }}
         >
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 520 }}>
                 <thead>
                     <tr
                         style={{
@@ -137,6 +140,31 @@ export default function Dashboard() {
     const [creating, setCreating] = useState(false);
     const [addTaskOpen, setAddTaskOpen] = useState(false);
     const [selectedTaskId, setSelectedTaskId] = useState(null);
+    const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+    useEffect(() => {
+        const mq = window.matchMedia('(min-width: 901px)');
+        const onChange = () => {
+            if (mq.matches) setMobileNavOpen(false);
+        };
+        mq.addEventListener('change', onChange);
+        onChange();
+        return () => mq.removeEventListener('change', onChange);
+    }, []);
+
+    useEffect(() => {
+        if (!mobileNavOpen) return undefined;
+        const onKey = (e) => {
+            if (e.key === 'Escape') setMobileNavOpen(false);
+        };
+        window.addEventListener('keydown', onKey);
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            window.removeEventListener('keydown', onKey);
+            document.body.style.overflow = prevOverflow;
+        };
+    }, [mobileNavOpen]);
 
     const roleIdNum = user?.roleId != null ? Number(user.roleId) : null;
     const isAdmin = roleIdNum === roleType.admin;
@@ -428,6 +456,7 @@ export default function Dashboard() {
         >
             {/* ── Topbar ── */}
             <div
+                className="app-dash-topbar"
                 style={{
                     position: 'sticky',
                     top: 0,
@@ -443,8 +472,33 @@ export default function Dashboard() {
                     gap: 12,
                 }}
             >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', minWidth: 0 }}>
+                    <button
+                        type="button"
+                        className="app-dash-menu-toggle"
+                        aria-label={mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
+                        aria-expanded={mobileNavOpen}
+                        onClick={() => setMobileNavOpen((o) => !o)}
+                    >
+                        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden fill="none">
+                            {mobileNavOpen ? (
+                                <path
+                                    d="M18 6L6 18M6 6l12 12"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                />
+                            ) : (
+                                <path
+                                    d="M4 7h16M4 12h16M4 17h16"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                />
+                            )}
+                        </svg>
+                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                         <div
                             style={{
                                 width: 36,
@@ -473,6 +527,7 @@ export default function Dashboard() {
                     </div>
                     {company && (
                         <div
+                            className="app-dash-company-chip"
                             style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -481,9 +536,21 @@ export default function Dashboard() {
                                 borderRadius: 10,
                                 border: '1px solid var(--border)',
                                 background: 'var(--bg-card)',
+                                minWidth: 0,
+                                maxWidth: '100%',
                             }}
                         >
-                            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                            <span
+                                className="app-dash-company-chip-name"
+                                style={{
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    color: 'var(--text-primary)',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
                                 {company.name}
                             </span>
                             <span
@@ -504,8 +571,11 @@ export default function Dashboard() {
                     )}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
+                <div className="app-dash-topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
+                    <span
+                        className="app-dash-user-line"
+                        style={{ color: 'var(--text-secondary)', fontSize: 13, minWidth: 0 }}
+                    >
                         {user?.firstName} {user?.lastName}
                         <span
                             style={{
@@ -549,21 +619,37 @@ export default function Dashboard() {
 
             {/* ── Sidebar + workspace ── */}
             <div
+                className="app-dash-main"
                 style={{
                     display: 'flex',
                     flex: 1,
                     minHeight: 0,
                     alignItems: 'stretch',
+                    position: 'relative',
                 }}
             >
-                <aside className="app-dash-sidebar">
+                {mobileNavOpen && (
+                    <button
+                        type="button"
+                        className="app-dash-nav-backdrop"
+                        aria-label="Close navigation menu"
+                        onClick={() => setMobileNavOpen(false)}
+                    />
+                )}
+                <aside
+                    className={`app-dash-sidebar${mobileNavOpen ? ' app-dash-sidebar--open' : ''}`}
+                    id="app-dash-sidebar"
+                >
                     <nav className="preview-sidebar" aria-label="Workspace">
                         {sidebarItems.map((item) => (
                             <button
                                 key={item.key}
                                 type="button"
                                 className={`preview-sidebar-item${navSection === item.key ? ' active' : ''}`}
-                                onClick={() => setNavSection(item.key)}
+                                onClick={() => {
+                                    setNavSection(item.key);
+                                    setMobileNavOpen(false);
+                                }}
                             >
                                 <span className="preview-sidebar-icon" aria-hidden />
                                 {item.label}
@@ -573,18 +659,16 @@ export default function Dashboard() {
                 </aside>
                 <div
                     className="app-dash-workarea"
-                    style={{ flex: 1, minWidth: 0, padding: '24px 28px 40px', overflow: 'auto' }}
+                    style={{ flex: 1, minWidth: 0, overflow: 'auto' }}
                 >
                     <div className="preview-frame app-dash-frame" style={{ maxWidth: 1200, margin: '0 auto' }}>
                         <div className="preview-topbar">
-                            <span className="dot-red" />
-                            <span className="dot-yellow" />
-                            <span className="dot-green" />
+                            <WorkspaceFrameAccent />
                             <span className="preview-topbar-title">
                                 FlowDesk — {company?.name || 'Workspace'}
                             </span>
                         </div>
-                        <div style={{ padding: 24 }}>
+                        <div className="app-dash-frame-inner">
                             {navSection !== 'settings' && (
                             <div style={{ marginBottom: 28 }}>
                                 <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>

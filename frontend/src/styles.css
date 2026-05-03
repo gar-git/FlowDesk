@@ -308,6 +308,27 @@ body {
   box-shadow: 0 6px 20px rgba(108, 99, 255, 0.45);
 }
 
+.nav-mobile-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+
+.nav-mobile-toggle:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-card-hover);
+}
+
 /* ===== HERO SECTION ===== */
 .hero {
   min-height: 100vh;
@@ -526,29 +547,81 @@ body {
 .preview-topbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   padding: 14px 20px;
   background: var(--surface-topbar-dots);
   border-bottom: 1px solid var(--border);
+  min-width: 0;
 }
 
-.dot-red {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #ff5f57;
+/* Branded frame accent — workflow strip (replaces decorative OS window dots) */
+.workspace-frame-accent {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding: 5px 14px 5px 10px;
+  border-radius: 999px;
+  background: linear-gradient(
+    135deg,
+    rgba(108, 99, 255, 0.14),
+    rgba(0, 212, 255, 0.07)
+  );
+  border: 1px solid rgba(108, 99, 255, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 4px 20px rgba(108, 99, 255, 0.07);
 }
-.dot-yellow {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #febc2e;
+
+.workspace-frame-accent__svg {
+  width: 76px;
+  height: 18px;
+  flex-shrink: 0;
 }
-.dot-green {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #28c840;
+
+.workspace-frame-accent__path {
+  opacity: 0.92;
+}
+
+.workspace-frame-accent__node {
+  opacity: 0.95;
+}
+
+.workspace-frame-accent__node--a {
+  fill: var(--purple-light);
+}
+
+.workspace-frame-accent__node--b {
+  fill: var(--cyan);
+}
+
+.workspace-frame-accent__node--c {
+  fill: var(--pink);
+}
+
+.workspace-frame-accent__caption {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--purple-light);
+  opacity: 0.95;
+}
+
+[data-theme="light"] .workspace-frame-accent {
+  background: linear-gradient(
+    135deg,
+    rgba(108, 99, 255, 0.1),
+    rgba(0, 212, 255, 0.05)
+  );
+  border-color: rgba(108, 99, 255, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 4px 16px rgba(108, 99, 255, 0.08);
+}
+
+[data-theme="light"] .workspace-frame-accent__caption {
+  color: var(--purple-dark);
 }
 
 .preview-topbar-title {
@@ -556,6 +629,11 @@ body {
   font-size: 13px;
   color: var(--text-muted);
   font-weight: 500;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .preview-body {
@@ -696,6 +774,205 @@ body {
   border: 1px solid rgba(108, 99, 255, 0.2);
 }
 
+.app-dash-menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: var(--transition);
+}
+
+.app-dash-menu-toggle:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-card-hover);
+}
+
+.app-dash-nav-backdrop {
+  display: none;
+}
+
+.app-dash-frame-inner {
+  padding: clamp(14px, 4vw, 24px);
+}
+
+.table-responsive-shell {
+  max-width: 100%;
+}
+
+.app-dash-user-line {
+  display: inline-block;
+  max-width: 100%;
+}
+
+@media (max-width: 900px) {
+  .app-dash-menu-toggle {
+    display: inline-flex;
+  }
+
+  .app-dash-nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 44;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(3px);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Sidebar shell takes no flex width; inner nav slides over content */
+  .app-dash-sidebar {
+    flex: 0 0 0 !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    overflow: visible;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 46;
+    pointer-events: none;
+  }
+
+  .app-dash-sidebar--open {
+    pointer-events: auto;
+  }
+
+  .app-dash-sidebar .preview-sidebar {
+    pointer-events: auto;
+    width: min(280px, 88vw);
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 20px 10px;
+    box-sizing: border-box;
+    background: rgba(13, 15, 30, 0.96);
+    backdrop-filter: blur(16px);
+    border-right: 1px solid var(--border);
+    box-shadow: 8px 0 40px rgba(0, 0, 0, 0.35);
+    transform: translateX(-102%);
+    transition: transform 0.22s ease;
+  }
+
+  [data-theme="light"] .app-dash-sidebar .preview-sidebar {
+    background: rgba(255, 255, 255, 0.96);
+  }
+
+  .app-dash-sidebar--open .preview-sidebar {
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .app-dash-topbar {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+
+  .app-dash-topbar-user {
+    flex-basis: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .app-dash-user-line {
+    font-size: 12px !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: min(100%, 260px);
+  }
+}
+
+@media (max-width: 900px) {
+  .app-task-board .preview-kanban.app-kanban {
+    display: flex;
+    flex-direction: row;
+    grid-template-columns: unset;
+    gap: 14px;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding-bottom: 10px;
+    margin: 0 -4px;
+    padding-left: 4px;
+    padding-right: 4px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-task-board .preview-kanban.app-kanban > .preview-col.app-kanban-col {
+    flex: 0 0 min(300px, 86vw);
+    scroll-snap-align: start;
+  }
+}
+
+@media (max-width: 540px) {
+  .app-task-card-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .app-task-card-project {
+    max-width: none;
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-backdrop {
+    padding: 12px;
+  }
+
+  .modal-backdrop:has(.modal-panel.task-detail-modal) {
+    align-items: flex-end;
+  }
+
+  .modal-panel.task-detail-modal {
+    max-height: 92vh;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .task-detail-modal-header {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .modal-panel.task-detail-modal .modal-panel-body {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .task-detail-brand-project {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .settings-theme-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
 .app-task-board {
   display: flex;
   flex-direction: column;
@@ -806,7 +1083,7 @@ body {
 /* ===== FEATURES GRID ===== */
 .features-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
   gap: 20px;
   margin-top: 60px;
 }
@@ -3130,11 +3407,55 @@ select.admin-form-input option {
 
 @media (max-width: 768px) {
   .navbar {
-    padding: 14px 20px;
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
   }
-  .nav-links .nav-link {
+
+  .nav-mobile-toggle {
+    display: inline-flex;
+    order: 2;
+    margin-left: auto;
+  }
+
+  .nav-logo {
+    order: 1;
+    min-width: 0;
+  }
+
+  .nav-links {
+    order: 3;
+    flex-basis: 100%;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 12px 0 4px;
+    margin: 0;
+    border-top: 1px solid var(--border);
     display: none;
   }
+
+  .navbar.navbar--menu-open .nav-links {
+    display: flex;
+  }
+
+  .nav-links .nav-link {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+  }
+
+  .nav-links .btn-nav-login,
+  .nav-links .btn-nav-signup {
+    width: 100%;
+    justify-content: center;
+    margin-top: 4px;
+  }
+
   .hero {
     padding: 100px 20px 60px;
   }
